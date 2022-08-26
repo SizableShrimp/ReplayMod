@@ -4,7 +4,7 @@ package com.replaymod.replay.mixin;
 import com.replaymod.core.ReplayMod;
 import com.replaymod.replay.Setting;
 import com.replaymod.replay.handler.GuiHandler.MainMenuButtonPosition;
-import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.screens.TitleScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;

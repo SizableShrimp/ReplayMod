@@ -2,50 +2,28 @@ package com.replaymod.replay.mixin;
 
 import com.replaymod.replay.ReplayModReplay;
 import com.replaymod.replay.camera.CameraEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
+import net.minecraft.client.ClientRecipeBook;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.stats.StatsCounter;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-//#if MC>=11400
-import net.minecraft.client.world.ClientWorld;
-//#else
-//$$ import net.minecraft.world.World;
-//#endif
-
-//#if MC>=11200
-//#if MC>=11400
-import net.minecraft.client.recipebook.ClientRecipeBook;
-//#else
-//$$ import net.minecraft.stats.RecipeBook;
-//#endif
-//#endif
-//#if MC>=10904
-import net.minecraft.stat.StatHandler;
-//#else
-//$$ import net.minecraft.stats.StatFileWriter;
-//#endif
-
-//#if MC>=10800
-import net.minecraft.client.network.ClientPlayerEntity;
-//#else
-//$$ import net.minecraft.client.entity.EntityClientPlayerMP;
-//$$ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-//#endif
-
-@Mixin(ClientPlayerInteractionManager.class)
+@Mixin(MultiPlayerGameMode.class)
 public abstract class MixinPlayerControllerMP {
 
     @Shadow
-    private MinecraftClient client;
+    private Minecraft client;
 
     @Shadow
     //#if MC>=10904
-    private ClientPlayNetworkHandler networkHandler;
+    private ClientPacketListener networkHandler;
     //#else
     //$$ private NetHandlerPlayClient netClientHandler;
     //#endif
@@ -58,17 +36,17 @@ public abstract class MixinPlayerControllerMP {
     //#endif
     private void replayModReplay_createReplayCamera(
             //#if MC>=11400
-            ClientWorld worldIn,
+            ClientLevel worldIn,
             //#else
             //$$ World worldIn,
             //#endif
-            StatHandler statisticsManager,
+            StatsCounter statisticsManager,
             ClientRecipeBook recipeBookClient,
             //#if MC>=11600
             boolean lastIsHoldingSneakKey,
             boolean lastSprinting,
             //#endif
-            CallbackInfoReturnable<ClientPlayerEntity> ci
+            CallbackInfoReturnable<LocalPlayer> ci
     ) {
         if (ReplayModReplay.instance.getReplayHandler() != null) {
             ci.setReturnValue(new CameraEntity(this.client, worldIn, this.networkHandler, statisticsManager, recipeBookClient));

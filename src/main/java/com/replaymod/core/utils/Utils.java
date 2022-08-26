@@ -24,8 +24,6 @@ import de.johni0702.minecraft.gui.utils.lwjgl.Dimension;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableDimension;
 import de.johni0702.minecraft.gui.versions.Image;
 import de.johni0702.minecraft.gui.versions.MCVer;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.util.crash.CrashReport;
 import org.apache.commons.io.Charsets;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.LogManager;
@@ -41,6 +39,8 @@ import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
+import net.minecraft.CrashReport;
+import net.minecraft.client.gui.screens.Screen;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -246,23 +246,23 @@ public class Utils {
 
     public static GuiInfoPopup error(Logger logger, GuiContainer container, CrashReport crashReport, Runnable onClose) {
         // Convert crash report to string
-        String crashReportStr = crashReport.asString();
+        String crashReportStr = crashReport.getFriendlyReport();
 
         // Log via logger
         logger.error(crashReportStr);
 
         // Try to save the crash report
-        if (crashReport.getFile() == null) {
+        if (crashReport.getSaveFile() == null) {
             try {
-                File folder = new File(getMinecraft().runDirectory, "crash-reports");
+                File folder = new File(getMinecraft().gameDirectory, "crash-reports");
                 File file = new File(folder, "crash-" + (new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss")).format(new Date()) + "-client.txt");
                 logger.debug("Saving crash report to file: {}", file);
-                crashReport.writeToFile(file);
+                crashReport.saveToFile(file);
             } catch (Throwable t) {
                 logger.error("Saving crash report file:", t);
             }
         } else {
-            logger.debug("Not saving crash report as file already exists: {}", crashReport.getFile());
+            logger.debug("Not saving crash report as file already exists: {}", crashReport.getSaveFile());
         }
 
         logger.trace("Opening crash report popup GUI");

@@ -15,11 +15,9 @@ import de.johni0702.minecraft.gui.function.Typeable;
 import de.johni0702.minecraft.gui.utils.lwjgl.Point;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableDimension;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadablePoint;
-import net.minecraft.client.resource.language.I18n;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
+import net.minecraft.client.resources.language.I18n;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
@@ -223,7 +221,7 @@ public class GuiMarkerTimeline extends AbstractGuiTimeline<GuiMarkerTimeline> im
     protected String getTooltipText(RenderInfo renderInfo) {
         Marker marker = getMarkerAt(renderInfo.mouseX, renderInfo.mouseY);
         if (marker != null) {
-            return marker.getName() != null ? marker.getName() : I18n.translate("replaymod.gui.ingame.unnamedmarker");
+            return marker.getName() != null ? marker.getName() : I18n.get("replaymod.gui.ingame.unnamedmarker");
         }
         return super.getTooltipText(renderInfo);
     }

@@ -3,17 +3,17 @@ package com.replaymod.core.mixin;
 
 import com.replaymod.core.ReplayMod;
 import com.replaymod.core.versions.LangResourcePack;
-import net.minecraft.resource.ResourcePack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 import java.util.function.BiConsumer;
 import java.util.stream.Collector;
+import net.minecraft.server.packs.PackResources;
 
 
 //#if MC>=11600
-@Mixin(net.minecraft.resource.ResourcePackManager.class)
+@Mixin(net.minecraft.server.packs.repository.PackRepository.class)
 //#else
 //$$ @Mixin(net.minecraft.client.MinecraftClient.class)
 //#endif
@@ -28,7 +28,7 @@ public class Mixin_InjectDynamicResourcePacks {
             //#endif
             at = @At(value = "INVOKE", target = "Ljava/util/stream/Stream;collect(Ljava/util/stream/Collector;)Ljava/lang/Object;")
     )
-    private Collector<ResourcePack, ?, ?> injectReplayModPacks(Collector<ResourcePack, ?, ?> collector) {
+    private Collector<PackResources, ?, ?> injectReplayModPacks(Collector<PackResources, ?, ?> collector) {
         collector = append(collector, new LangResourcePack());
         if (ReplayMod.jGuiResourcePack != null) {
             collector = append(collector, ReplayMod.jGuiResourcePack);

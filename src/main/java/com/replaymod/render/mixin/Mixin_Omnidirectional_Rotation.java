@@ -7,17 +7,13 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-//#if MC>=11500
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Vec3f;
-//#else
-//$$ import org.lwjgl.opengl.GL11;
-//#endif
-
 import static com.replaymod.core.versions.MCVer.getMinecraft;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Vector3f;
+
 //#if MC>=11500
-@Mixin(value = net.minecraft.client.render.GameRenderer.class)
+@Mixin(value = net.minecraft.client.renderer.GameRenderer.class)
 //#else
 //#if MC>=11400
 //$$ @Mixin(value = net.minecraft.client.render.Camera.class)
@@ -43,7 +39,7 @@ public abstract class Mixin_Omnidirectional_Rotation {
             //#if MC>=11500
             float partialTicks,
             long frameStartNano,
-            MatrixStack matrixStack,
+            PoseStack matrixStack,
             //#endif
             CallbackInfo ci
     ) {
@@ -79,12 +75,12 @@ public abstract class Mixin_Omnidirectional_Rotation {
                     break;
             }
             //#if MC>=11500
-            matrixStack.multiply(new Vec3f(x, y, 0).getDegreesQuaternion(angle));
+            matrixStack.mulPose(new Vector3f(x, y, 0).rotationDegrees(angle));
             //#else
             //$$ GL11.glRotatef(angle, x, y, 0);
             //#endif
 
-            getMinecraft().worldRenderer.scheduleTerrainUpdate();
+            getMinecraft().levelRenderer.needsUpdate();
         }
         //#if MC<11500
         //$$ if (getHandler() != null && getHandler().omnidirectional) {

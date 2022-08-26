@@ -1,28 +1,28 @@
 package de.johni0702.minecraft.gui.versions;
 
+import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableColor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.Window;
-import net.minecraft.text.Text;
-import net.minecraft.util.crash.CrashReportSection;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.concurrent.Callable;
+import net.minecraft.CrashReportCategory;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.network.chat.Component;
 
 /**
  * Abstraction over things that have changed between different MC versions.
  */
 public class MCVer {
-    public static MinecraftClient getMinecraft() {
-        return MinecraftClient.getInstance();
+    public static Minecraft getMinecraft() {
+        return Minecraft.getInstance();
     }
 
     private static class ScissorBounds {
@@ -93,7 +93,7 @@ public class MCVer {
     }
 
     //#if MC>=11400
-    public static Window newScaledResolution(MinecraftClient mc) {
+    public static Window newScaledResolution(Minecraft mc) {
         //#if MC>=11500
         return mc.getWindow();
         //#else
@@ -110,10 +110,10 @@ public class MCVer {
     //$$ }
     //#endif
 
-    public static void addDetail(CrashReportSection category, String name, Callable<String> callable) {
+    public static void addDetail(CrashReportCategory category, String name, Callable<String> callable) {
         //#if MC>=10904
         //#if MC>=11200
-        category.add(name, callable::call);
+        category.setDetail(name, callable::call);
         //#else
         //$$ category.setDetail(name, callable::call);
         //#endif
@@ -124,12 +124,12 @@ public class MCVer {
 
     public static void drawRect(int right, int bottom, int left, int top) {
         //#if MC>=10800
-        Tessellator tessellator = Tessellator.getInstance();
+        Tesselator tessellator = Tesselator.getInstance();
         //#else
         //$$ Tessellator tessellator = Tessellator.instance;
         //#endif
         //#if MC>=10904
-        BufferBuilder vertexBuffer = tessellator.getBuffer();
+        BufferBuilder vertexBuffer = tessellator.getBuilder();
         //#else
         //#if MC>=10800
         //$$ WorldRenderer vertexBuffer = tessellator.getWorldRenderer();
@@ -139,14 +139,14 @@ public class MCVer {
         //#endif
         //#if MC>=10809
         //#if MC>=11700
-        vertexBuffer.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION);
+        vertexBuffer.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
         //#else
         //$$ vertexBuffer.begin(GL11.GL_QUADS, VertexFormats.POSITION);
         //#endif
-        vertexBuffer.vertex(right, top, 0).next();
-        vertexBuffer.vertex(left, top, 0).next();
-        vertexBuffer.vertex(left, bottom, 0).next();
-        vertexBuffer.vertex(right, bottom, 0).next();
+        vertexBuffer.vertex(right, top, 0).endVertex();
+        vertexBuffer.vertex(left, top, 0).endVertex();
+        vertexBuffer.vertex(left, bottom, 0).endVertex();
+        vertexBuffer.vertex(right, bottom, 0).endVertex();
         //#else
         //$$ vertexBuffer.startDrawingQuads();
         //$$ vertexBuffer.addVertex(right, top, 0);
@@ -154,27 +154,27 @@ public class MCVer {
         //$$ vertexBuffer.addVertex(left, bottom, 0);
         //$$ vertexBuffer.addVertex(right, bottom, 0);
         //#endif
-        tessellator.draw();
+        tessellator.end();
     }
 
     public static void drawRect(int x, int y, int width, int height, ReadableColor tl, ReadableColor tr, ReadableColor bl, ReadableColor br) {
         //#if MC>=10800
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder vertexBuffer = tessellator.getBuffer();
+        Tesselator tessellator = Tesselator.getInstance();
+        BufferBuilder vertexBuffer = tessellator.getBuilder();
         //#else
         //$$ Tessellator tessellator = Tessellator.instance;
         //$$ Tessellator vertexBuffer = tessellator;
         //#endif
         //#if MC>=10809
         //#if MC>=11700
-        vertexBuffer.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        vertexBuffer.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         //#else
         //$$ vertexBuffer.begin(GL11.GL_QUADS, VertexFormats.POSITION_COLOR);
         //#endif
-        vertexBuffer.vertex(x, y + height, 0).color(bl.getRed(), bl.getGreen(), bl.getBlue(), bl.getAlpha()).next();
-        vertexBuffer.vertex(x + width, y + height, 0).color(br.getRed(), br.getGreen(), br.getBlue(), br.getAlpha()).next();
-        vertexBuffer.vertex(x + width, y, 0).color(tr.getRed(), tr.getGreen(), tr.getBlue(), tr.getAlpha()).next();
-        vertexBuffer.vertex(x, y, 0).color(tl.getRed(), tl.getGreen(), tl.getBlue(), tl.getAlpha()).next();
+        vertexBuffer.vertex(x, y + height, 0).color(bl.getRed(), bl.getGreen(), bl.getBlue(), bl.getAlpha()).endVertex();
+        vertexBuffer.vertex(x + width, y + height, 0).color(br.getRed(), br.getGreen(), br.getBlue(), br.getAlpha()).endVertex();
+        vertexBuffer.vertex(x + width, y, 0).color(tr.getRed(), tr.getGreen(), tr.getBlue(), tr.getAlpha()).endVertex();
+        vertexBuffer.vertex(x, y, 0).color(tl.getRed(), tl.getGreen(), tl.getBlue(), tl.getAlpha()).endVertex();
         //#else
         //$$ vertexBuffer.startDrawingQuads();
         //$$ vertexBuffer.setColorRGBA(bl.getRed(), bl.getGreen(), bl.getBlue(), bl.getAlpha());
@@ -186,11 +186,11 @@ public class MCVer {
         //$$ vertexBuffer.setColorRGBA(tl.getRed(), tl.getGreen(), tl.getBlue(), tl.getAlpha());
         //$$ vertexBuffer.addVertex(x, y, 0);
         //#endif
-        tessellator.draw();
+        tessellator.end();
     }
 
-    public static TextRenderer getFontRenderer() {
-        return getMinecraft().textRenderer;
+    public static Font getFontRenderer() {
+        return getMinecraft().font;
     }
 
     //#if FABRIC<=0
@@ -221,7 +221,7 @@ public class MCVer {
 
     public static void setClipboardString(String text) {
         //#if MC>=11400
-        getMinecraft().keyboard.setClipboard(text);
+        getMinecraft().keyboardHandler.setClipboard(text);
         //#else
         //$$ GuiScreen.setClipboardString(text);
         //#endif
@@ -229,15 +229,15 @@ public class MCVer {
 
     public static String getClipboardString() {
         //#if MC>=11400
-        return getMinecraft().keyboard.getClipboard();
+        return getMinecraft().keyboardHandler.getClipboard();
         //#else
         //$$ return GuiScreen.getClipboardString();
         //#endif
     }
 
-    public static Text literalText(String str) {
+    public static Component literalText(String str) {
         //#if MC>=11900
-        return Text.literal(str);
+        return Component.literal(str);
         //#else
         //$$ return new LiteralText(str);
         //#endif
@@ -278,7 +278,7 @@ public class MCVer {
         public static final int KEY_X = GLFW.GLFW_KEY_X;
 
         public static void enableRepeatEvents(boolean enabled) {
-            getMinecraft().keyboard.setRepeatEvents(enabled);
+            getMinecraft().keyboardHandler.setSendRepeatsToGui(enabled);
         }
     }
     //#endif

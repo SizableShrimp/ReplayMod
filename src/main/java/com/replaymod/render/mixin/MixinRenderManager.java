@@ -1,21 +1,17 @@
 package com.replaymod.render.mixin;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Quaternion;
+import com.mojang.math.Vector3f;
 import com.replaymod.core.versions.MCVer;
 import com.replaymod.render.hooks.EntityRendererHandler;
-import net.minecraft.client.render.entity.EntityRenderDispatcher;
-import net.minecraft.entity.Entity;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-
-//#if MC>=11500
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Vec3f;
-import net.minecraft.util.math.Quaternion;
-//#endif
-
 //#if MC>=10904
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //#else
@@ -47,8 +43,8 @@ public abstract class MixinRenderManager {
     //#if MC>=10904
     private void replayModRender_reorientForCubicRendering(Entity entity, double dx, double dy, double dz, float iDoNotKnow, float partialTicks,
                                                            //#if MC>=11500
-                                                           MatrixStack matrixStack,
-                                                           VertexConsumerProvider vertexConsumerProvider,
+                                                           PoseStack matrixStack,
+                                                           MultiBufferSource vertexConsumerProvider,
                                                            int int_1,
                                                            //#else
                                                            //$$ boolean iDoNotCare,
@@ -63,8 +59,8 @@ public abstract class MixinRenderManager {
             double yaw = -Math.atan2(dx, dz);
             //#if MC>=11500
             this.rotation = new Quaternion(0.0F, 0.0F, 0.0F, 1.0F);
-            this.rotation.hamiltonProduct(Vec3f.POSITIVE_Y.getDegreesQuaternion((float) -yaw));
-            this.rotation.hamiltonProduct(Vec3f.POSITIVE_X.getDegreesQuaternion((float) pitch));
+            this.rotation.mul(Vector3f.YP.rotationDegrees((float) -yaw));
+            this.rotation.mul(Vector3f.XP.rotationDegrees((float) pitch));
             //#else
             //$$ this.cameraPitch = (float) Math.toDegrees(pitch);
             //$$ this.cameraYaw = (float) Math.toDegrees(yaw);

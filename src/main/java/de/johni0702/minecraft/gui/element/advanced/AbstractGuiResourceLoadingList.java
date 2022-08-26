@@ -45,13 +45,12 @@ import de.johni0702.minecraft.gui.utils.lwjgl.Point;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableDimension;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadablePoint;
 import de.johni0702.minecraft.gui.versions.MCVer.Keyboard;
-import net.minecraft.client.gui.screen.Screen;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Supplier;
+import net.minecraft.client.gui.screens.Screen;
 
 import static de.johni0702.minecraft.gui.utils.Utils.DOUBLE_CLICK_INTERVAL;
 //#else

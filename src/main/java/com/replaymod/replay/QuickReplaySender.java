@@ -16,13 +16,12 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.network.NetworkState;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.Packet;
-import net.minecraft.network.PacketByteBuf;
-
 import javax.annotation.Nullable;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.ConnectionProtocol;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
 import java.io.IOException;
 import java.util.function.Consumer;
 
@@ -42,7 +41,7 @@ import static com.replaymod.replay.ReplayModReplay.LOGGER;
  */
 @ChannelHandler.Sharable
 public class QuickReplaySender extends ChannelHandlerAdapter implements ReplaySender {
-    private final MinecraftClient mc = getMinecraft();
+    private final Minecraft mc = getMinecraft();
 
     private final ReplayModReplay mod;
     private final RandomAccessReplay replay;
@@ -76,7 +75,7 @@ public class QuickReplaySender extends ChannelHandlerAdapter implements ReplaySe
                 byteBuf.getBytes(byteBuf.readerIndex(), buf, 0, size);
                 ByteBuf wrappedBuf = Unpooled.wrappedBuffer(buf);
                 wrappedBuf.writerIndex(size);
-                PacketByteBuf packetByteBuf = new PacketByteBuf(wrappedBuf);
+                FriendlyByteBuf packetByteBuf = new FriendlyByteBuf(wrappedBuf);
 
                 //#if MC>=10809
                 Packet<?> mcPacket;
@@ -84,7 +83,7 @@ public class QuickReplaySender extends ChannelHandlerAdapter implements ReplaySe
                 //$$ Packet mcPacket;
                 //#endif
                 //#if MC>=11700
-                mcPacket = NetworkState.PLAY.getPacketHandler(NetworkSide.CLIENTBOUND, packet.getId(), packetByteBuf);
+                mcPacket = ConnectionProtocol.PLAY.createPacket(PacketFlow.CLIENTBOUND, packet.getId(), packetByteBuf);
                 //#elseif MC>=11500
                 //$$ mcPacket = NetworkState.PLAY.getPacketHandler(NetworkSide.CLIENTBOUND, packet.getId());
                 //#else

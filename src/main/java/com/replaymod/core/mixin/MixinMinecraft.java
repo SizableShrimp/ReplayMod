@@ -1,7 +1,6 @@
 package com.replaymod.core.mixin;
 
 import com.replaymod.core.versions.MCVer;
-import net.minecraft.client.MinecraftClient;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,15 +17,13 @@ import com.replaymod.core.events.PreRenderCallback;
 //#endif
 
 import java.io.IOException;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.thread.ReentrantBlockableEventLoop;
 
-//#if MC>=11400
-import net.minecraft.util.thread.ReentrantThreadExecutor;
-//#endif
-
-@Mixin(MinecraftClient.class)
+@Mixin(Minecraft.class)
 public abstract class MixinMinecraft
         //#if MC>=11400
-        extends ReentrantThreadExecutor<Runnable>
+        extends ReentrantBlockableEventLoop<Runnable>
         //#endif
         implements MCVer.MinecraftMethodAccessor {
     //#if MC>=11400
@@ -44,7 +41,7 @@ public abstract class MixinMinecraft
     //#if MC>=11400
     @Override
     public void replayModExecuteTaskQueue() {
-        runTasks();
+        runAllTasks();
     }
     //#endif
 

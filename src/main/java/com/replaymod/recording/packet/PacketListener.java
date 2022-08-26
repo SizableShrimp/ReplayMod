@@ -26,30 +26,10 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.AttributeKey;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.packet.s2c.play.CustomPayloadS2CPacket;
-import net.minecraft.network.packet.s2c.play.DisconnectS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerSpawnS2CPacket;
-import net.minecraft.entity.Entity;
-import net.minecraft.network.NetworkState;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.text.LiteralTextContent;
-import net.minecraft.util.crash.CrashReport;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-//#if MC>=10800
-//#if MC<10904
-//$$ import net.minecraft.network.play.server.S46PacketSetCompressionLevel;
-//#endif
-import net.minecraft.network.packet.s2c.login.LoginCompressionS2CPacket;
-import net.minecraft.network.packet.s2c.play.ResourcePackSendS2CPacket;
-import net.minecraft.network.NetworkSide;
-//#endif
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -64,6 +44,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import net.minecraft.CrashReport;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.Connection;
+import net.minecraft.network.ConnectionProtocol;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.game.ClientboundAddPlayerPacket;
+import net.minecraft.network.protocol.game.ClientboundCustomPayloadPacket;
+import net.minecraft.network.protocol.game.ClientboundDisconnectPacket;
+import net.minecraft.network.protocol.game.ClientboundResourcePackPacket;
+import net.minecraft.network.protocol.login.ClientboundLoginCompressionPacket;
+import net.minecraft.world.entity.Entity;
 
 import static com.replaymod.core.versions.MCVer.*;
 import static com.replaymod.replaystudio.util.Utils.writeInt;
@@ -78,12 +70,12 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
     public static final String DECOMPRESS_KEY = "decompress";
     public static final String DECODER_KEY = "decoder";
 
-    private static final MinecraftClient mc = getMinecraft();
+    private static final Minecraft mc = getMinecraft();
     private static final Logger logger = LogManager.getLogger();
 
     //#if MC>=11700
-    private static final int PACKET_ID_RESOURCE_PACK_SEND = getPacketId(NetworkState.PLAY, new ResourcePackSendS2CPacket("", "", false, null));
-    private static final int PACKET_ID_LOGIN_COMPRESSION = getPacketId(NetworkState.LOGIN, new LoginCompressionS2CPacket(0));
+    private static final int PACKET_ID_RESOURCE_PACK_SEND = getPacketId(ConnectionProtocol.PLAY, new ClientboundResourcePackPacket("", "", false, null));
+    private static final int PACKET_ID_LOGIN_COMPRESSION = getPacketId(ConnectionProtocol.LOGIN, new ClientboundLoginCompressionPacket(0));
     //#else
     //$$ private static final int PACKET_ID_RESOURCE_PACK_SEND = getPacketId(NetworkState.PLAY, new ResourcePackSendS2CPacket());
     //$$ private static final int PACKET_ID_LOGIN_COMPRESSION = getPacketId(NetworkState.LOGIN, new LoginCompressionS2CPacket());
@@ -156,7 +148,7 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
         });
     }
 
-    public void save(net.minecraft.network.Packet packet) {
+    public void save(net.minecraft.network.protocol.Packet packet) {
         Packet encoded;
         try {
             encoded = encodeMcPacket(getConnectionState(), packet);
@@ -172,8 +164,8 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
         // to happen on the main thread so we can guarantee correct ordering of inbound and inject packets.
         // Otherwise, injected packets may end up further down the packet stream than they were supposed to and other
         // inbound packets which may rely on the injected packet would behave incorrectly when played back.
-        if (!mc.isOnThread()) {
-            mc.send(() -> save(packet));
+        if (!mc.isSameThread()) {
+            mc.tell(() -> save(packet));
             return;
         }
         try {
@@ -308,8 +300,8 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
                     }
                 } catch (Exception e) {
                     logger.error("Saving replay file:", e);
-                    CrashReport crashReport = CrashReport.create(e, "Saving replay file");
-                    core.runLater(() -> Utils.error(logger, VanillaGuiScreen.wrap(mc.currentScreen), crashReport, guiSavingReplay::close));
+                    CrashReport crashReport = CrashReport.forThrowable(e, "Saving replay file");
+                    core.runLater(() -> Utils.error(logger, VanillaGuiScreen.wrap(mc.screen), crashReport, guiSavingReplay::close));
                     return;
                 }
             }
@@ -329,7 +321,7 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
         }
         this.context = ctx;
 
-        NetworkState connectionState = getConnectionState();
+        ConnectionProtocol connectionState = getConnectionState();
 
         Packet packet = null;
         if (msg instanceof ByteBuf) {
@@ -338,16 +330,16 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
             if (buf.readableBytes() > 0) {
                 packet = decodePacket(connectionState, buf);
             }
-        } else if (msg instanceof net.minecraft.network.Packet) {
+        } else if (msg instanceof net.minecraft.network.protocol.Packet) {
             // for integrated server connections MC is passing the packet objects directly, so we need to encode them
             // ourselves to be able to store them
-            packet = encodeMcPacket(connectionState, (net.minecraft.network.Packet) msg);
+            packet = encodeMcPacket(connectionState, (net.minecraft.network.protocol.Packet) msg);
         }
 
         if (packet != null) {
-            if (connectionState == NetworkState.PLAY && packet.getId() == PACKET_ID_RESOURCE_PACK_SEND) {
-                ClientConnection connection = ctx.pipeline().get(ClientConnection.class);
-                save(resourcePackRecorder.handleResourcePack(connection, (ResourcePackSendS2CPacket) decodeMcPacket(packet)));
+            if (connectionState == ConnectionProtocol.PLAY && packet.getId() == PACKET_ID_RESOURCE_PACK_SEND) {
+                Connection connection = ctx.pipeline().get(Connection.class);
+                save(resourcePackRecorder.handleResourcePack(connection, (ClientboundResourcePackPacket) decodeMcPacket(packet)));
                 return;
             }
 
@@ -357,18 +349,18 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
         super.channelRead(ctx, msg);
     }
 
-    private NetworkState getConnectionState() {
+    private ConnectionProtocol getConnectionState() {
         ChannelHandlerContext ctx = context;
         if (ctx == null) {
-            return NetworkState.LOGIN;
+            return ConnectionProtocol.LOGIN;
         }
-        AttributeKey<NetworkState> key = ClientConnection.PROTOCOL_ATTRIBUTE_KEY;
+        AttributeKey<ConnectionProtocol> key = Connection.ATTRIBUTE_PROTOCOL;
         return ctx.channel().attr(key).get();
     }
 
-    private static Packet encodeMcPacket(NetworkState connectionState, net.minecraft.network.Packet packet) throws Exception {
+    private static Packet encodeMcPacket(ConnectionProtocol connectionState, net.minecraft.network.protocol.Packet packet) throws Exception {
         //#if MC>=10800
-        Integer packetId = connectionState.getPacketId(NetworkSide.CLIENTBOUND, packet);
+        Integer packetId = connectionState.getPacketId(PacketFlow.CLIENTBOUND, packet);
         //#else
         //$$ Integer packetId = (Integer) connectionState.func_150755_b().inverse().get(packet.getClass());
         //#endif
@@ -377,9 +369,9 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
         }
         ByteBuf byteBuf = Unpooled.buffer();
         try {
-            packet.write(new PacketByteBuf(byteBuf));
+            packet.write(new FriendlyByteBuf(byteBuf));
             return new Packet(
-                    MCVer.getPacketTypeRegistry(connectionState == NetworkState.LOGIN),
+                    MCVer.getPacketTypeRegistry(connectionState == ConnectionProtocol.LOGIN),
                     packetId,
                     com.github.steveice10.netty.buffer.Unpooled.wrappedBuffer(
                             byteBuf.array(),
@@ -392,13 +384,13 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private static net.minecraft.network.Packet decodeMcPacket(Packet packet) throws IOException, IllegalAccessException, InstantiationException {
-        NetworkState connectionState = packet.getRegistry().getState() == State.LOGIN ? NetworkState.LOGIN : NetworkState.PLAY;
+    private static net.minecraft.network.protocol.Packet decodeMcPacket(Packet packet) throws IOException, IllegalAccessException, InstantiationException {
+        ConnectionProtocol connectionState = packet.getRegistry().getState() == State.LOGIN ? ConnectionProtocol.LOGIN : ConnectionProtocol.PLAY;
         int packetId = packet.getId();
-        PacketByteBuf packetBuf = new PacketByteBuf(Unpooled.wrappedBuffer(packet.getBuf().nioBuffer()));
+        FriendlyByteBuf packetBuf = new FriendlyByteBuf(Unpooled.wrappedBuffer(packet.getBuf().nioBuffer()));
 
         //#if MC>=11700
-        return connectionState.getPacketHandler(NetworkSide.CLIENTBOUND, packetId, packetBuf);
+        return connectionState.createPacket(PacketFlow.CLIENTBOUND, packetId, packetBuf);
         //#else
         //#if MC>=10800
         //$$ net.minecraft.network.Packet p = connectionState.getPacketHandler(NetworkSide.CLIENTBOUND, packetId);
@@ -410,21 +402,21 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
         //#endif
     }
 
-    private static Packet decodePacket(NetworkState connectionState, ByteBuf buf) {
-        PacketByteBuf packetBuf = new PacketByteBuf(buf.slice());
+    private static Packet decodePacket(ConnectionProtocol connectionState, ByteBuf buf) {
+        FriendlyByteBuf packetBuf = new FriendlyByteBuf(buf.slice());
         int packetId = packetBuf.readVarInt();
         byte[] bytes = new byte[packetBuf.readableBytes()];
         packetBuf.readBytes(bytes);
         return new Packet(
-                MCVer.getPacketTypeRegistry(connectionState == NetworkState.LOGIN),
+                MCVer.getPacketTypeRegistry(connectionState == ConnectionProtocol.LOGIN),
                 packetId,
                 com.github.steveice10.netty.buffer.Unpooled.wrappedBuffer(bytes)
         );
     }
 
-    private static int getPacketId(NetworkState networkState, net.minecraft.network.Packet packet) {
+    private static int getPacketId(ConnectionProtocol networkState, net.minecraft.network.protocol.Packet packet) {
         try {
-            return requireNonNull(networkState.getPacketId(NetworkSide.CLIENTBOUND, packet));
+            return requireNonNull(networkState.getPacketId(PacketFlow.CLIENTBOUND, packet));
         } catch (Exception e) {
             throw new RuntimeException("Failed to determine packet id for " + packet.getClass(), e);
         }
@@ -444,8 +436,8 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
             marker.setX(view.getX());
             marker.setY(view.getY());
             marker.setZ(view.getZ());
-            marker.setYaw(view.getYaw());
-            marker.setPitch(view.getPitch());
+            marker.setYaw(view.getYRot());
+            marker.setPitch(view.getXRot());
         }
         // Roll is always 0
         saveService.submit(() -> {
@@ -473,16 +465,16 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
 
-            if (msg instanceof CustomPayloadS2CPacket) {
-                CustomPayloadS2CPacket packet = (CustomPayloadS2CPacket) msg;
-                if (Restrictions.PLUGIN_CHANNEL.equals(packet.getChannel())) {
-                    save(new DisconnectS2CPacket(net.minecraft.text.Text.literal("Please update to view this replay.")));
+            if (msg instanceof ClientboundCustomPayloadPacket) {
+                ClientboundCustomPayloadPacket packet = (ClientboundCustomPayloadPacket) msg;
+                if (Restrictions.PLUGIN_CHANNEL.equals(packet.getIdentifier())) {
+                    save(new ClientboundDisconnectPacket(net.minecraft.network.chat.Component.literal("Please update to view this replay.")));
                 }
             }
 
-            if (msg instanceof PlayerSpawnS2CPacket) {
+            if (msg instanceof ClientboundAddPlayerPacket) {
                 //#if MC>=10800
-                UUID uuid = ((PlayerSpawnS2CPacket) msg).getPlayerUuid();
+                UUID uuid = ((ClientboundAddPlayerPacket) msg).getPlayerId();
                 //#else
                 //$$ UUID uuid = ((S0CPacketSpawnPlayer) msg).func_148948_e().getId();
                 //#endif

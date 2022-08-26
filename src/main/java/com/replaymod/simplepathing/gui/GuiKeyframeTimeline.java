@@ -19,9 +19,6 @@ import de.johni0702.minecraft.gui.GuiRenderer;
 import de.johni0702.minecraft.gui.element.advanced.AbstractGuiTimeline;
 import de.johni0702.minecraft.gui.function.Draggable;
 import de.johni0702.minecraft.gui.utils.lwjgl.vector.Vector2f;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
 import org.apache.commons.lang3.tuple.Pair;
 import de.johni0702.minecraft.gui.utils.lwjgl.Point;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableDimension;
@@ -30,6 +27,7 @@ import org.lwjgl.opengl.GL11;
 
 import java.util.Comparator;
 import java.util.Optional;
+import net.minecraft.client.renderer.GameRenderer;
 
 import static com.replaymod.core.versions.MCVer.emitLine;
 import static de.johni0702.minecraft.gui.versions.MCVer.popScissorState;
@@ -38,8 +36,9 @@ import static de.johni0702.minecraft.gui.versions.MCVer.setScissorDisabled;
 
 //#if MC>=11700
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.render.GameRenderer;
-//#endif
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.Tesselator;
 
 public class GuiKeyframeTimeline extends AbstractGuiTimeline<GuiKeyframeTimeline> implements Draggable {
     protected static final int KEYFRAME_SIZE = 5;
@@ -152,9 +151,9 @@ public class GuiKeyframeTimeline extends AbstractGuiTimeline<GuiKeyframeTimeline
                     float positionXKeyframeTimeline = positonX + KEYFRAME_SIZE / 2f;
 
                     final int color = 0xff0000ff;
-                    Tessellator tessellator = Tessellator.getInstance();
-                    BufferBuilder buffer = tessellator.getBuffer();
-                    buffer.begin(net.minecraft.client.render.VertexFormat.DrawMode.LINE_STRIP, VertexFormats.LINES);
+                    Tesselator tessellator = Tesselator.getInstance();
+                    BufferBuilder buffer = tessellator.getBuilder();
+                    buffer.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.LINE_STRIP, DefaultVertexFormat.POSITION_COLOR_NORMAL);
 
                     // Start just below the top border of the replay timeline
                     Vector2f p1 = new Vector2f(replayTimelineLeft + positionXReplayTimeline, replayTimelineTop + BORDER_TOP);
@@ -170,15 +169,15 @@ public class GuiKeyframeTimeline extends AbstractGuiTimeline<GuiKeyframeTimeline
                     emitLine(buffer, p3, p4, color);
 
                     //#if MC>=11700
-                    RenderSystem.setShader(GameRenderer::getRenderTypeLinesShader);
+                    RenderSystem.setShader(GameRenderer::getRendertypeLinesShader);
                     //#else
                     //$$ GL11.glEnable(GL11.GL_LINE_SMOOTH);
                     //$$ GL11.glDisable(GL11.GL_TEXTURE_2D);
                     //#endif
                     pushScissorState();
                     setScissorDisabled();
-                    com.mojang.blaze3d.systems.RenderSystem.lineWidth(2);
-                    tessellator.draw();
+                    RenderSystem.lineWidth(2);
+                    tessellator.end();
                     popScissorState();
                     //#if MC<11700
                     //$$ GL11.glEnable(GL11.GL_TEXTURE_2D);

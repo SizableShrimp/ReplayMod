@@ -1,9 +1,5 @@
 package com.replaymod.core.mixin;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.util.crash.CrashReport;
-import net.minecraft.client.render.RenderTickCounter;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
@@ -13,7 +9,10 @@ import java.util.Queue;
 //#if MC>=11800
 import java.util.function.Supplier;
 //#endif
-
+import net.minecraft.CrashReport;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Timer;
+import net.minecraft.network.Connection;
 //#if MC>=11400
 import java.util.concurrent.CompletableFuture;
 //#endif
@@ -27,15 +26,15 @@ import java.util.concurrent.CompletableFuture;
 //$$ import java.util.List;
 //#endif
 
-@Mixin(MinecraftClient.class)
+@Mixin(Minecraft.class)
 public interface MinecraftAccessor {
     @Accessor("renderTickCounter")
-    RenderTickCounter getTimer();
+    Timer getTimer();
     @Accessor("renderTickCounter")
     //#if MC>=11200
     @Mutable
     //#endif
-    void setTimer(RenderTickCounter value);
+    void setTimer(Timer value);
 
     //#if MC>=11400
     @Accessor
@@ -66,6 +65,6 @@ public interface MinecraftAccessor {
 
     //#if MC>=11400
     @Accessor("integratedServerConnection")
-    void setConnection(ClientConnection connection);
+    void setConnection(Connection connection);
     //#endif
 }

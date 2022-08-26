@@ -29,11 +29,12 @@ import de.johni0702.minecraft.gui.utils.lwjgl.Point;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableColor;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableDimension;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadablePoint;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 import static de.johni0702.minecraft.gui.versions.MCVer.popScissorState;
 import static de.johni0702.minecraft.gui.versions.MCVer.pushScissorState;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 public class OffsetGuiRenderer implements GuiRenderer {
 
@@ -93,7 +94,7 @@ public class OffsetGuiRenderer implements GuiRenderer {
     }
 
     @Override
-    public MatrixStack getMatrixStack() {
+    public PoseStack getMatrixStack() {
         return renderer.getMatrixStack();
     }
 
@@ -133,7 +134,7 @@ public class OffsetGuiRenderer implements GuiRenderer {
     }
 
     @Override
-    public void bindTexture(Identifier location) {
+    public void bindTexture(ResourceLocation location) {
         renderer.bindTexture(location);
     }
 

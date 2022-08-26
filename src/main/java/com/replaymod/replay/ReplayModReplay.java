@@ -20,12 +20,12 @@ import com.replaymod.replay.gui.screen.GuiModCompatWarning;
 import com.replaymod.replay.handler.GuiHandler;
 import com.replaymod.replaystudio.data.Marker;
 import com.replaymod.replaystudio.replay.ReplayFile;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nullable;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -69,8 +69,8 @@ public class ReplayModReplay implements Module {
                         marker.setX(camera.getX());
                         marker.setY(camera.getY());
                         marker.setZ(camera.getZ());
-                        marker.setYaw(camera.getYaw());
-                        marker.setPitch(camera.getPitch());
+                        marker.setYaw(camera.getYRot());
+                        marker.setPitch(camera.getXRot());
                         marker.setRoll(camera.roll);
                         replayHandler.getOverlay().timeline.addMarker(marker);
                     }
@@ -82,7 +82,7 @@ public class ReplayModReplay implements Module {
             @Override
             public void run() {
                 if (replayHandler != null) {
-                    MinecraftClient mc = MCVer.getMinecraft();
+                    Minecraft mc = MCVer.getMinecraft();
                     ListenableFuture<NoGuiScreenshot> future = NoGuiScreenshot.take(mc, 1280, 720);
                     Futures.addCallback(future, new FutureCallback<NoGuiScreenshot>() {
                         @Override
@@ -186,14 +186,14 @@ public class ReplayModReplay implements Module {
             }
         }
         replayHandler = new ReplayHandler(replayFile, asyncMode);
-        KeyBinding.updateKeysByCode(); // see Mixin_ContextualKeyBindings
+        KeyMapping.resetMapping(); // see Mixin_ContextualKeyBindings
 
         return replayHandler;
     }
 
     public void forcefullyStopReplay() {
         replayHandler = null;
-        KeyBinding.updateKeysByCode(); // see Mixin_ContextualKeyBindings
+        KeyMapping.resetMapping(); // see Mixin_ContextualKeyBindings
     }
 
     public ReplayMod getCore() {

@@ -2,19 +2,14 @@ package com.replaymod.replay.mixin;
 
 import com.replaymod.extras.advancedscreenshots.AdvancedScreenshots;
 import com.replaymod.replay.ReplayModReplay;
+import net.minecraft.client.KeyboardHandler;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 //#if MC>=11400
-import net.minecraft.client.Keyboard;
-//#else
-//$$ import net.minecraft.client.Minecraft;
-//#endif
-
-//#if MC>=11400
-@Mixin(Keyboard.class)
+@Mixin(KeyboardHandler.class)
 //#else
 //$$ @Mixin(Minecraft.class)
 //#endif

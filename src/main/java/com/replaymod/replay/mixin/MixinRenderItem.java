@@ -2,18 +2,13 @@ package com.replaymod.replay.mixin;
 
 import com.replaymod.replay.ReplayHandler;
 import com.replaymod.replay.ReplayModReplay;
+import net.minecraft.Util;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-//#if MC>=11400
-import net.minecraft.util.Util;
-//#else
-//$$ import net.minecraft.client.Minecraft;
-//#endif
-
 //#if MC>=11500
-@Mixin(net.minecraft.client.render.RenderPhase.class)
+@Mixin(net.minecraft.client.renderer.RenderStateShard.class)
 //#else
 //$$ @Mixin(net.minecraft.client.render.item.ItemRenderer.class)
 //#endif
@@ -38,7 +33,7 @@ public class MixinRenderItem {
             return replayHandler.getReplaySender().currentTimeStamp();
         }
         //#if MC>=11400
-        return Util.getMeasuringTimeMs();
+        return Util.getMillis();
         //#else
         //$$ return Minecraft.getSystemTime();
         //#endif

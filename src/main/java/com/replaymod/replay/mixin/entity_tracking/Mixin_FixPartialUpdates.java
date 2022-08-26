@@ -1,8 +1,8 @@
 package com.replaymod.replay.mixin.entity_tracking;
 
 import com.replaymod.replay.ext.EntityExt;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.entity.Entity;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.world.entity.Entity;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -30,7 +30,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * This mixin fixes those two issues by redirecting to the server rotation/position respectively.
  * Minecraft does not currently even track the server rotation, so we need to do that as well.
  */
-@Mixin(ClientPlayNetworkHandler.class)
+@Mixin(ClientPacketListener.class)
 public class Mixin_FixPartialUpdates {
 
     //
@@ -62,17 +62,17 @@ public class Mixin_FixPartialUpdates {
 
     @Redirect(method = "onEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;getX()D"))
     private double getTrackedX(Entity instance) {
-        return instance.getTrackedPosition().withDelta(0, 0, 0).getX();
+        return instance.getPositionCodec().decode(0, 0, 0).x();
     }
 
     @Redirect(method = "onEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;getY()D"))
     private double getTrackedY(Entity instance) {
-        return instance.getTrackedPosition().withDelta(0, 0, 0).getY();
+        return instance.getPositionCodec().decode(0, 0, 0).y();
     }
 
     @Redirect(method = "onEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;getZ()D"))
     private double getTrackedZ(Entity instance) {
-        return instance.getTrackedPosition().withDelta(0, 0, 0).getZ();
+        return instance.getPositionCodec().decode(0, 0, 0).z();
     }
     //#endif
 

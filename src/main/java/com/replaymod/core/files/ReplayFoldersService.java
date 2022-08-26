@@ -3,17 +3,16 @@ package com.replaymod.core.files;
 import com.google.common.net.PercentEscaper;
 import com.replaymod.core.Setting;
 import com.replaymod.core.SettingsRegistry;
-import net.minecraft.client.MinecraftClient;
-
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import net.minecraft.client.Minecraft;
 
 import static com.replaymod.core.utils.Utils.ensureDirectoryExists;
 
 public class ReplayFoldersService {
-    private final Path mcDir = MinecraftClient.getInstance().runDirectory.toPath();
+    private final Path mcDir = Minecraft.getInstance().gameDirectory.toPath();
     private final SettingsRegistry settings;
 
     public ReplayFoldersService(SettingsRegistry settings) {

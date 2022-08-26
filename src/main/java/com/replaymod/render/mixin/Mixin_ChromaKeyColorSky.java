@@ -3,8 +3,8 @@ package com.replaymod.render.mixin;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.replaymod.render.hooks.EntityRendererHandler;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableColor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.WorldRenderer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LevelRenderer;
 import org.lwjgl.opengl.GL11;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -16,9 +16,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Instead of rendering the normal sky, clears the screen with a uniform color for use with chroma keying.
  */
-@Mixin(WorldRenderer.class)
+@Mixin(LevelRenderer.class)
 public abstract class Mixin_ChromaKeyColorSky {
-    @Shadow @Final private MinecraftClient client;
+    @Shadow @Final private Minecraft client;
 
     //#if MC>=11800
     @Inject(

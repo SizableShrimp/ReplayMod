@@ -1,7 +1,7 @@
 package de.johni0702.minecraft.gui.versions.callbacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import de.johni0702.minecraft.gui.utils.Event;
-import net.minecraft.client.util.math.MatrixStack;
 
 public interface RenderHudCallback {
     Event<RenderHudCallback> EVENT = Event.create((listeners) ->
@@ -12,5 +12,5 @@ public interface RenderHudCallback {
             }
     );
 
-    void renderHud(MatrixStack stack, float partialTicks);
+    void renderHud(PoseStack stack, float partialTicks);
 }

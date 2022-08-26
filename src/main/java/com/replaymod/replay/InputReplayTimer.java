@@ -5,13 +5,9 @@ import com.replaymod.core.utils.WrappedTimer;
 import com.replaymod.core.versions.MCVer;
 import com.replaymod.replay.camera.CameraController;
 import com.replaymod.replay.camera.CameraEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderTickCounter;
-
-//#if MC>=11802
-import net.minecraft.client.gui.screen.DownloadingTerrainScreen;
-//#endif
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Timer;
+import net.minecraft.client.gui.screens.ReceivingLevelScreen;
 //#if MC>=11400
 import org.lwjgl.glfw.GLFW;
 //#else
@@ -34,9 +30,9 @@ import org.lwjgl.glfw.GLFW;
 
 public class InputReplayTimer extends WrappedTimer {
     private final ReplayModReplay mod;
-    private final MinecraftClient mc;
+    private final Minecraft mc;
     
-    public InputReplayTimer(RenderTickCounter wrapped, ReplayModReplay mod) {
+    public InputReplayTimer(Timer wrapped, ReplayModReplay mod) {
         super(wrapped);
         this.mod = mod;
         this.mc = mod.getCore().getMinecraft();
@@ -49,7 +45,7 @@ public class InputReplayTimer extends WrappedTimer {
     //#else
     //$$ void
     //#endif
-    beginRenderTick(
+    advanceTime(
             //#if MC>=11400
             long sysClock
             //#endif
@@ -57,7 +53,7 @@ public class InputReplayTimer extends WrappedTimer {
         //#if MC>=11600
         int ticksThisFrame =
         //#endif
-        super.beginRenderTick(
+        super.advanceTime(
                 //#if MC>=11400
                 sysClock
                 //#endif
@@ -76,13 +72,13 @@ public class InputReplayTimer extends WrappedTimer {
 
         // If we are in a replay, we have to manually process key and mouse events as the
         // tick speed may vary or there may not be any ticks at all (when the replay is paused)
-        if (mod.getReplayHandler() != null && mc.world != null && mc.player != null) {
+        if (mod.getReplayHandler() != null && mc.level != null && mc.player != null) {
             //#if MC>=11400
-            if (mc.currentScreen == null || mc.currentScreen.passEvents) {
+            if (mc.screen == null || mc.screen.passEvents) {
                 GLFW.glfwPollEvents();
                 MCVer.processKeyBinds();
             }
-            mc.keyboard.pollDebugCrash();
+            mc.keyboardHandler.tick();
             //#else
             //$$ if (mc.currentScreen != null) {
                 //#if MC>=10800
@@ -119,8 +115,8 @@ public class InputReplayTimer extends WrappedTimer {
             //#if MC>=11802
             // As of 1.18.2, this screen always stays open for at least two seconds, and requires ticking to close.
             // Thanks, but we'll have none of that (at least while in a replay).
-            if (mc.currentScreen instanceof DownloadingTerrainScreen) {
-                mc.currentScreen.close();
+            if (mc.screen instanceof ReceivingLevelScreen) {
+                mc.screen.onClose();
             }
             //#endif
 

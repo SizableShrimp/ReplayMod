@@ -45,18 +45,19 @@ import de.johni0702.minecraft.gui.utils.lwjgl.ReadablePoint;
 import de.johni0702.minecraft.gui.versions.MCVer;
 import de.johni0702.minecraft.gui.versions.callbacks.PreTickCallback;
 import de.johni0702.minecraft.gui.versions.callbacks.RenderHudCallback;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.Window;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.crash.CrashException;
-import net.minecraft.util.crash.CrashReport;
-import net.minecraft.util.crash.CrashReportSection;
+import net.minecraft.CrashReport;
+import net.minecraft.CrashReportCategory;
+import net.minecraft.ReportedException;
+import net.minecraft.client.Minecraft;
 
 import static de.johni0702.minecraft.gui.versions.MCVer.literalText;
 //#else
 //$$ import org.lwjgl.input.Mouse;
 //$$ import net.minecraft.client.gui.ScaledResolution;
 //#endif
+
+import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 //#if MC>=10800 && MC<11400
 //$$ import java.io.IOException;
@@ -119,21 +120,21 @@ public abstract class AbstractGuiOverlay<T extends AbstractGuiOverlay<T>> extend
      * GUI elements such as text fields.
      * Default for overlays is {@code true} whereas for normal GUI screens it is {@code false}.
      * @param allowUserInput {@code true} to allow user input, {@code false} to disallow it
-     * @see net.minecraft.client.gui.screen.Screen#passEvents
+     * @see net.minecraft.client.gui.screens.Screen#passEvents
      */
     public void setAllowUserInput(boolean allowUserInput) {
         userInputGuiScreen.passEvents = allowUserInput;
     }
 
     private void updateUserInputGui() {
-        MinecraftClient mc = getMinecraft();
+        Minecraft mc = getMinecraft();
         if (visible) {
             if (mouseVisible) {
-                if (mc.currentScreen == null) {
+                if (mc.screen == null) {
                     mc.setScreen(userInputGuiScreen);
                 }
             } else {
-                if (mc.currentScreen == userInputGuiScreen) {
+                if (mc.screen == userInputGuiScreen) {
                     mc.setScreen(null);
                 }
             }
@@ -177,17 +178,17 @@ public abstract class AbstractGuiOverlay<T extends AbstractGuiOverlay<T>> extend
                     OffsetGuiRenderer eRenderer = new OffsetGuiRenderer(renderer, position, tooltipSize);
                     tooltip.draw(eRenderer, tooltipSize, renderInfo);
                 } catch (Exception ex) {
-                    CrashReport crashReport = CrashReport.create(ex, "Rendering Gui Tooltip");
+                    CrashReport crashReport = CrashReport.forThrowable(ex, "Rendering Gui Tooltip");
                     renderInfo.addTo(crashReport);
-                    CrashReportSection category = crashReport.addElement("Gui container details");
+                    CrashReportCategory category = crashReport.addCategory("Gui container details");
                     MCVer.addDetail(category, "Container", this::toString);
                     MCVer.addDetail(category, "Width", () -> "" + size.getWidth());
                     MCVer.addDetail(category, "Height", () -> "" + size.getHeight());
-                    category = crashReport.addElement("Tooltip details");
+                    category = crashReport.addCategory("Tooltip details");
                     MCVer.addDetail(category, "Element", tooltip::toString);
                     MCVer.addDetail(category, "Position", position::toString);
                     MCVer.addDetail(category, "Size", tooltipSize::toString);
-                    throw new CrashException(crashReport);
+                    throw new ReportedException(crashReport);
                 }
             }
         }
@@ -207,7 +208,7 @@ public abstract class AbstractGuiOverlay<T extends AbstractGuiOverlay<T>> extend
         private EventHandler() {}
 
         { on(RenderHudCallback.EVENT, this::renderOverlay); }
-        private void renderOverlay(MatrixStack stack, float partialTicks) {
+        private void renderOverlay(PoseStack stack, float partialTicks) {
             updateUserInputGui();
             updateRenderer();
             int layers = getMaxLayer();
@@ -230,7 +231,7 @@ public abstract class AbstractGuiOverlay<T extends AbstractGuiOverlay<T>> extend
         { on(PreTickCallback.EVENT, () -> invokeAll(Tickable.class, Tickable::tick)); }
 
         private void updateRenderer() {
-            MinecraftClient mc = getMinecraft();
+            Minecraft mc = getMinecraft();
             //#if MC>=11400
             Window
             //#else
@@ -238,14 +239,14 @@ public abstract class AbstractGuiOverlay<T extends AbstractGuiOverlay<T>> extend
             //#endif
                     res = MCVer.newScaledResolution(mc);
             if (screenSize == null
-                    || screenSize.getWidth() != res.getScaledWidth()
-                    || screenSize.getHeight() != res.getScaledHeight()) {
-                screenSize = new Dimension(res.getScaledWidth(), res.getScaledHeight());
+                    || screenSize.getWidth() != res.getGuiScaledWidth()
+                    || screenSize.getHeight() != res.getGuiScaledHeight()) {
+                screenSize = new Dimension(res.getGuiScaledWidth(), res.getGuiScaledHeight());
             }
         }
     }
 
-    protected class UserInputGuiScreen extends net.minecraft.client.gui.screen.Screen {
+    protected class UserInputGuiScreen extends net.minecraft.client.gui.screens.Screen {
 
         //#if MC>=11400
         UserInputGuiScreen() {
@@ -378,9 +379,9 @@ public abstract class AbstractGuiOverlay<T extends AbstractGuiOverlay<T>> extend
 
         //#if MC>=11400
         @Override
-        public void close() {
+        public void onClose() {
             if (closeable) {
-                super.close();
+                super.onClose();
             }
         }
         //#endif

@@ -24,23 +24,23 @@
  */
 package de.johni0702.minecraft.gui;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableColor;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableDimension;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadablePoint;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 public interface GuiRenderer {
 
     ReadablePoint getOpenGlOffset();
 
-    MatrixStack getMatrixStack();
+    PoseStack getMatrixStack();
 
     ReadableDimension getSize();
 
     void setDrawingArea(int x, int y, int width, int height);
 
-    void bindTexture(Identifier location);
+    void bindTexture(ResourceLocation location);
 
     void bindTexture(int glId);
 

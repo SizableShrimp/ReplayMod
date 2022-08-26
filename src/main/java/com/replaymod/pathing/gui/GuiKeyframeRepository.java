@@ -37,7 +37,6 @@ import de.johni0702.minecraft.gui.utils.Consumer;
 import de.johni0702.minecraft.gui.utils.lwjgl.Dimension;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableDimension;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadablePoint;
-import net.minecraft.util.crash.CrashReport;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -49,6 +48,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import net.minecraft.CrashReport;
 
 import static de.johni0702.minecraft.gui.versions.MCVer.getClipboardString;
 import static de.johni0702.minecraft.gui.versions.MCVer.setClipboardString;
@@ -187,7 +187,7 @@ public class GuiKeyframeRepository extends GuiScreen implements Closeable, Typea
                 setClipboardString(serialization.serialize(toBeSerialized));
             } catch (Throwable t) {
                 t.printStackTrace();
-                CrashReport report = CrashReport.create(t, "Copying timeline(s)");
+                CrashReport report = CrashReport.forThrowable(t, "Copying timeline(s)");
                 Utils.error(LOGGER, GuiKeyframeRepository.this, report, () -> {});
             }
         }

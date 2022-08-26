@@ -1,20 +1,19 @@
 package com.replaymod.core.versions.scheduler;
 
 import com.replaymod.core.mixin.MinecraftAccessor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.crash.CrashException;
-import net.minecraft.util.thread.ReentrantThreadExecutor;
-
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import net.minecraft.ReportedException;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.thread.ReentrantBlockableEventLoop;
 
 public class SchedulerImpl implements  Scheduler {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     @Override
     public void runSync(Runnable runnable) throws InterruptedException, ExecutionException, TimeoutException {
-        if (mc.isOnThread()) {
+        if (mc.isSameThread()) {
             runnable.run();
         } else {
             executor.submit(() -> {
@@ -51,7 +50,7 @@ public class SchedulerImpl implements  Scheduler {
     // stuff submitted via runLater is actually always run (e.g. recording might not be fully stopped because parts
     // of that are run via runLater and stopping the recording happens right around the time MC clears the queue).
     // Luckily, that's also the version where MC pulled out the executor implementation, so we can just spin up our own.
-    public static class ReplayModExecutor extends ReentrantThreadExecutor<Runnable> {
+    public static class ReplayModExecutor extends ReentrantBlockableEventLoop<Runnable> {
         private final Thread mcThread = Thread.currentThread();
 
         private ReplayModExecutor(String string_1) {
@@ -59,30 +58,30 @@ public class SchedulerImpl implements  Scheduler {
         }
 
         @Override
-        protected Runnable createTask(Runnable runnable) {
+        protected Runnable wrapRunnable(Runnable runnable) {
             return runnable;
         }
 
         @Override
-        protected boolean canExecute(Runnable runnable) {
+        protected boolean shouldRun(Runnable runnable) {
             return true;
         }
 
         @Override
-        protected Thread getThread() {
+        protected Thread getRunningThread() {
             return mcThread;
         }
 
         @Override
-        public void runTasks() {
-            super.runTasks();
+        public void runAllTasks() {
+            super.runAllTasks();
         }
     }
     public final ReplayModExecutor executor = new ReplayModExecutor("Client/ReplayMod");
 
     @Override
     public void runTasks() {
-        executor.runTasks();
+        executor.runAllTasks();
     }
 
     @Override
@@ -97,7 +96,7 @@ public class SchedulerImpl implements  Scheduler {
     }
 
     private void runLater(Runnable runnable, Runnable defer) {
-        if (mc.isOnThread() && inRunLater && !inRenderTaskQueue) {
+        if (mc.isSameThread() && inRunLater && !inRenderTaskQueue) {
             ((MinecraftAccessor) mc).getRenderTaskQueue().offer(() -> {
                 inRenderTaskQueue = true;
                 try {
@@ -107,14 +106,14 @@ public class SchedulerImpl implements  Scheduler {
                 }
             });
         } else {
-            executor.send(() -> {
+            executor.tell(() -> {
                 inRunLater = true;
                 try {
                     runnable.run();
-                } catch (CrashException e) {
+                } catch (ReportedException e) {
                     e.printStackTrace();
-                    System.err.println(e.getReport().asString());
-                    mc.setCrashReportSupplier(e.getReport());
+                    System.err.println(e.getReport().getFriendlyReport());
+                    mc.delayCrashRaw(e.getReport());
                 } finally {
                     inRunLater = false;
                 }

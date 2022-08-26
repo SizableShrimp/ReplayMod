@@ -1,14 +1,11 @@
 package com.replaymod.recording.mixin;
 
-import net.minecraft.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 import javax.annotation.Nonnull;
-
-//#if MC>=10904
-import net.minecraft.entity.data.TrackedData;
-//#endif
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.world.entity.LivingEntity;
 
 @Mixin(LivingEntity.class)
 public interface EntityLivingBaseAccessor {
@@ -16,6 +13,6 @@ public interface EntityLivingBaseAccessor {
     @Accessor("LIVING_FLAGS")
     @Nonnull
     @SuppressWarnings("ConstantConditions")
-    static TrackedData<Byte> getLivingFlags() { return null; }
+    static EntityDataAccessor<Byte> getLivingFlags() { return null; }
     //#endif
 }

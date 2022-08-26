@@ -1,5 +1,6 @@
 package com.replaymod.render.gui;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import com.replaymod.core.utils.Utils;
 import com.replaymod.render.frame.BitmapFrame;
 import com.replaymod.render.rendering.VideoRenderer;
@@ -17,18 +18,13 @@ import de.johni0702.minecraft.gui.layout.HorizontalLayout;
 import de.johni0702.minecraft.gui.utils.lwjgl.Dimension;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableDimension;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadablePoint;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.client.resource.language.I18n;
-import net.minecraft.util.Identifier;
-
-//#if MC>=11400
-import net.minecraft.client.texture.NativeImage;
-//#endif
-
 import java.nio.ByteBuffer;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.resources.ResourceLocation;
 
 public class GuiVideoRenderer extends GuiScreen implements Tickable {
-    private static final Identifier NO_PREVIEW_TEXTURE = new Identifier("replaymod", "logo.jpg");
+    private static final ResourceLocation NO_PREVIEW_TEXTURE = new ResourceLocation("replaymod", "logo.jpg");
 
     private final VideoRenderer renderer;
 
@@ -86,7 +82,7 @@ public class GuiVideoRenderer extends GuiScreen implements Tickable {
         }
     }.setI18nLabel("replaymod.gui.rendering.cancel").setSize(150, 20);
 
-    private NativeImageBackedTexture previewTexture;
+    private DynamicTexture previewTexture;
     private boolean previewTextureDirty;
 
     {
@@ -205,8 +201,8 @@ public class GuiVideoRenderer extends GuiScreen implements Tickable {
             prevRenderedFrames = renderer.getFramesDone();
         }
 
-        renderTime.setText(I18n.translate("replaymod.gui.rendering.timetaken") + ": " + secToString(renderTimeTaken/1000));
-        remainingTime.setText(I18n.translate("replaymod.gui.rendering.timeleft") + ": " + secToString(renderTimeLeft));
+        renderTime.setText(I18n.get("replaymod.gui.rendering.timetaken") + ": " + secToString(renderTimeTaken/1000));
+        remainingTime.setText(I18n.get("replaymod.gui.rendering.timeleft") + ": " + secToString(renderTimeLeft));
 
         int framesDone = renderer.getFramesDone(), framesTotal = renderer.getTotalFrames();
         progressBar.setI18nLabel("replaymod.gui.rendering.progress", framesDone, framesTotal);
@@ -219,9 +215,9 @@ public class GuiVideoRenderer extends GuiScreen implements Tickable {
         int sec = seconds - ((min*60) + (hours*60*60));
 
         StringBuilder builder = new StringBuilder();
-        if(hours > 0) builder.append(hours).append(I18n.translate("replaymod.gui.hours"));
-        if(min > 0 || hours > 0) builder.append(min).append(I18n.translate("replaymod.gui.minutes"));
-        builder.append(sec).append(I18n.translate("replaymod.gui.seconds"));
+        if(hours > 0) builder.append(hours).append(I18n.get("replaymod.gui.hours"));
+        if(min > 0 || hours > 0) builder.append(min).append(I18n.get("replaymod.gui.minutes"));
+        builder.append(sec).append(I18n.get("replaymod.gui.seconds"));
 
         return builder.toString();
     }
@@ -233,7 +229,7 @@ public class GuiVideoRenderer extends GuiScreen implements Tickable {
 
         if (previewTexture == null) {
             //#if MC>=11400
-            previewTexture = new NativeImageBackedTexture(videoWidth, videoHeight, true);
+            previewTexture = new DynamicTexture(videoWidth, videoHeight, true);
             //#else
             //$$ previewTexture = new DynamicTexture(videoWidth, videoHeight);
             //#endif
@@ -244,7 +240,7 @@ public class GuiVideoRenderer extends GuiScreen implements Tickable {
             previewTextureDirty = false;
         }
 
-        guiRenderer.bindTexture(previewTexture.getGlId());
+        guiRenderer.bindTexture(previewTexture.getId());
         renderPreviewTexture(guiRenderer, size, videoWidth, videoHeight);
     }
 
@@ -270,7 +266,7 @@ public class GuiVideoRenderer extends GuiScreen implements Tickable {
             buffer.mark();
             synchronized (this) {
                 //#if MC>=11400
-                NativeImage data = previewTexture.getImage();
+                NativeImage data = previewTexture.getPixels();
                 assert data != null;
                 //#else
                 //$$ int[] data = previewTexture.getTextureData();
@@ -287,7 +283,7 @@ public class GuiVideoRenderer extends GuiScreen implements Tickable {
                         buffer.get(); // alpha
                         //#if MC>=11400
                         int value = 0xff << 24 | b << 16 | g << 8 |  r;
-                        data.setColor(x, y, value); // actually takes ABGR, not RGBA
+                        data.setPixelRGBA(x, y, value); // actually takes ABGR, not RGBA
                         //#else
                         //$$ int value = 0xff << 24 | r << 16 | g << 8 |  b;
                         //$$ data[y * width + x] = value;

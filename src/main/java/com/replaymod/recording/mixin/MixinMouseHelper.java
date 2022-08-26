@@ -3,7 +3,7 @@ package com.replaymod.recording.mixin;
 
 import com.replaymod.replay.InputReplayTimer;
 import com.replaymod.replay.ReplayModReplay;
-import net.minecraft.client.Mouse;
+import net.minecraft.client.MouseHandler;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
-@Mixin(Mouse.class)
+@Mixin(MouseHandler.class)
 public abstract class MixinMouseHelper {
     @Shadow
     private boolean cursorLocked;

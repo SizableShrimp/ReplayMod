@@ -1,6 +1,10 @@
 package com.replaymod.simplepathing.preview;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.replaymod.core.ReplayMod;
 import com.replaymod.core.events.PostRenderWorldCallback;
 import com.replaymod.core.versions.MCVer;
@@ -19,27 +23,19 @@ import com.replaymod.simplepathing.SPTimeline;
 import com.replaymod.simplepathing.gui.GuiPathing;
 import de.johni0702.minecraft.gui.utils.EventRegistrations;
 import de.johni0702.minecraft.gui.utils.lwjgl.vector.Vector3f;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.Identifier;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.lwjgl.opengl.GL11;
-
-//#if MC>=11700
-import net.minecraft.client.render.GameRenderer;
-//#endif
-
 //#if MC>=11500
 import com.mojang.blaze3d.systems.RenderSystem;
 //#endif
 
 import java.util.Comparator;
 import java.util.Optional;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
 
 import static com.replaymod.core.ReplayMod.TEXTURE;
 import static com.replaymod.core.versions.MCVer.bindTexture;
@@ -48,8 +44,8 @@ import static com.replaymod.core.versions.MCVer.popMatrix;
 import static com.replaymod.core.versions.MCVer.pushMatrix;
 
 public class PathPreviewRenderer extends EventRegistrations {
-    private static final Identifier CAMERA_HEAD = new Identifier("replaymod", "camera_head.png");
-    private static final MinecraftClient mc = MCVer.getMinecraft();
+    private static final ResourceLocation CAMERA_HEAD = new ResourceLocation("replaymod", "camera_head.png");
+    private static final Minecraft mc = MCVer.getMinecraft();
 
     private static final int SLOW_PATH_COLOR = 0xffcccc;
     private static final int FAST_PATH_COLOR = 0x660000;
@@ -64,8 +60,8 @@ public class PathPreviewRenderer extends EventRegistrations {
     }
 
     { on(PostRenderWorldCallback.EVENT, this::renderCameraPath); }
-    private void renderCameraPath(MatrixStack matrixStack) {
-        if (!replayHandler.getReplaySender().isAsyncMode() || mc.options.hudHidden) return;
+    private void renderCameraPath(PoseStack matrixStack) {
+        if (!replayHandler.getReplaySender().isAsyncMode() || mc.options.hideGui) return;
 
         Entity view = mc.getCameraEntity();
         if (view == null) return;
@@ -82,7 +78,7 @@ public class PathPreviewRenderer extends EventRegistrations {
 
         path.update();
 
-        int renderDistance = mc.options.getViewDistance().getValue() * 16;
+        int renderDistance = mc.options.renderDistance().get() * 16;
         int renderDistanceSquared = renderDistance * renderDistance;
 
         Vector3f viewPos = new Vector3f(
@@ -108,7 +104,7 @@ public class PathPreviewRenderer extends EventRegistrations {
             //#endif
 
             //#if MC>=11700
-            RenderSystem.getModelViewStack().multiplyPositionMatrix(matrixStack.peek().getPositionMatrix());
+            RenderSystem.getModelViewStack().mulPoseMatrix(matrixStack.last().pose());
             RenderSystem.applyModelViewMatrix();
             //#elseif MC>=11500
             //$$ RenderSystem.multMatrix(matrixStack.peek().getModel());
@@ -241,18 +237,18 @@ public class PathPreviewRenderer extends EventRegistrations {
         if (distanceSquared(view, pos1) > renderDistanceSquared) return;
         if (distanceSquared(view, pos2) > renderDistanceSquared) return;
 
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.getBuffer();
-        buffer.begin(net.minecraft.client.render.VertexFormat.DrawMode.LINES, VertexFormats.LINES);
+        Tesselator tessellator = Tesselator.getInstance();
+        BufferBuilder buffer = tessellator.getBuilder();
+        buffer.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
 
         emitLine(buffer, Vector3f.sub(pos1, view, null), Vector3f.sub(pos2, view, null), color);
 
         //#if MC>=11700
-        RenderSystem.setShader(GameRenderer::getRenderTypeLinesShader);
+        RenderSystem.setShader(GameRenderer::getRendertypeLinesShader);
         RenderSystem.disableCull();
         //#endif
-        com.mojang.blaze3d.systems.RenderSystem.lineWidth(3);
-        tessellator.draw();
+        RenderSystem.lineWidth(3);
+        tessellator.end();
         //#if MC>=11700
         RenderSystem.enableCull();
         //#endif
@@ -279,27 +275,27 @@ public class PathPreviewRenderer extends EventRegistrations {
         float maxX = 0.5f;
         float maxY = 0.5f;
 
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.getBuffer();
-        buffer.begin(net.minecraft.client.render.VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
+        Tesselator tessellator = Tesselator.getInstance();
+        BufferBuilder buffer = tessellator.getBuilder();
+        buffer.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
 
-        buffer.vertex(minX, minY, 0).texture(posX + size, posY + size).next();
-        buffer.vertex(minX, maxY, 0).texture(posX + size, posY).next();
-        buffer.vertex(maxX, maxY, 0).texture(posX, posY).next();
-        buffer.vertex(maxX, minY, 0).texture(posX, posY + size).next();
+        buffer.vertex(minX, minY, 0).uv(posX + size, posY + size).endVertex();
+        buffer.vertex(minX, maxY, 0).uv(posX + size, posY).endVertex();
+        buffer.vertex(maxX, maxY, 0).uv(posX, posY).endVertex();
+        buffer.vertex(maxX, minY, 0).uv(posX, posY + size).endVertex();
 
         pushMatrix();
 
         Vector3f t = Vector3f.sub(pos, view, null);
-        com.mojang.blaze3d.systems.RenderSystem.getModelViewStack().translate(t.x, t.y, t.z);
-        { float $angle = -mc.getEntityRenderDispatcher().camera.getYaw(); com.mojang.blaze3d.systems.RenderSystem.getModelViewStack().multiply(new net.minecraft.util.math.Quaternion(new net.minecraft.util.math.Vec3f(0, 1, 0), $angle, true)); }
-        { float $angle = mc.getEntityRenderDispatcher().camera.getPitch(); com.mojang.blaze3d.systems.RenderSystem.getModelViewStack().multiply(new net.minecraft.util.math.Quaternion(new net.minecraft.util.math.Vec3f(1, 0, 0), $angle, true)); }
+        RenderSystem.getModelViewStack().translate(t.x, t.y, t.z);
+        { float $angle = -mc.getEntityRenderDispatcher().camera.getYRot(); RenderSystem.getModelViewStack().mulPose(new com.mojang.math.Quaternion(new com.mojang.math.Vector3f(0, 1, 0), $angle, true)); }
+        { float $angle = mc.getEntityRenderDispatcher().camera.getXRot(); RenderSystem.getModelViewStack().mulPose(new com.mojang.math.Quaternion(new com.mojang.math.Vector3f(1, 0, 0), $angle, true)); }
 
         //#if MC>=11700
         RenderSystem.applyModelViewMatrix();
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         //#endif
-        tessellator.draw();
+        tessellator.end();
 
         popMatrix();
     }
@@ -311,26 +307,26 @@ public class PathPreviewRenderer extends EventRegistrations {
         pushMatrix();
 
         Vector3f t = Vector3f.sub(pos, view, null);
-        com.mojang.blaze3d.systems.RenderSystem.getModelViewStack().translate(t.x, t.y, t.z);
-        { float $angle = -rot.x; com.mojang.blaze3d.systems.RenderSystem.getModelViewStack().multiply(new net.minecraft.util.math.Quaternion(new net.minecraft.util.math.Vec3f(0, 1, 0), $angle, true)); }
-        { float $angle = rot.y; com.mojang.blaze3d.systems.RenderSystem.getModelViewStack().multiply(new net.minecraft.util.math.Quaternion(new net.minecraft.util.math.Vec3f(1, 0, 0), $angle, true)); }
-        { float $angle = rot.z; com.mojang.blaze3d.systems.RenderSystem.getModelViewStack().multiply(new net.minecraft.util.math.Quaternion(new net.minecraft.util.math.Vec3f(0, 0, 1), $angle, true)); }
+        RenderSystem.getModelViewStack().translate(t.x, t.y, t.z);
+        { float $angle = -rot.x; RenderSystem.getModelViewStack().mulPose(new com.mojang.math.Quaternion(new com.mojang.math.Vector3f(0, 1, 0), $angle, true)); }
+        { float $angle = rot.y; RenderSystem.getModelViewStack().mulPose(new com.mojang.math.Quaternion(new com.mojang.math.Vector3f(1, 0, 0), $angle, true)); }
+        { float $angle = rot.z; RenderSystem.getModelViewStack().mulPose(new com.mojang.math.Quaternion(new com.mojang.math.Vector3f(0, 0, 1), $angle, true)); }
 
         //draw the position line
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.getBuffer();
-        buffer.begin(net.minecraft.client.render.VertexFormat.DrawMode.LINES, VertexFormats.LINES);
+        Tesselator tessellator = Tesselator.getInstance();
+        BufferBuilder buffer = tessellator.getBuilder();
+        buffer.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
 
         emitLine(buffer, new Vector3f(0, 0, 0), new Vector3f(0, 0, 2), 0x00ff00aa);
 
         //#if MC>=11700
         RenderSystem.applyModelViewMatrix();
-        RenderSystem.setShader(GameRenderer::getRenderTypeLinesShader);
+        RenderSystem.setShader(GameRenderer::getRendertypeLinesShader);
         //#else
         //$$ GL11.glDisable(GL11.GL_TEXTURE_2D);
         //#endif
 
-        tessellator.draw();
+        tessellator.end();
 
         //#if MC<11700
         //$$ GL11.glEnable(GL11.GL_TEXTURE_2D);
@@ -342,49 +338,49 @@ public class PathPreviewRenderer extends EventRegistrations {
 
         double r = -cubeSize/2;
 
-        buffer.begin(net.minecraft.client.render.VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+        buffer.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
         //back
-        buffer.vertex(r, r + cubeSize, r).texture(3 * 8 / 64f, 8 / 64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r + cubeSize, r + cubeSize, r).texture(4*8/64f, 8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r + cubeSize, r, r).texture(4*8/64f, 2*8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r, r, r).texture(3*8/64f, 2*8/64f).color(255, 255, 255, 200).next();
+        buffer.vertex(r, r + cubeSize, r).uv(3 * 8 / 64f, 8 / 64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r + cubeSize, r + cubeSize, r).uv(4*8/64f, 8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r + cubeSize, r, r).uv(4*8/64f, 2*8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r, r, r).uv(3*8/64f, 2*8/64f).color(255, 255, 255, 200).endVertex();
 
         //front
-        buffer.vertex(r + cubeSize, r, r + cubeSize).texture(2 * 8 / 64f, 2*8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r + cubeSize, r + cubeSize, r + cubeSize).texture(2 * 8 / 64f, 8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r, r + cubeSize, r + cubeSize).texture(8 / 64f, 8 / 64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r, r, r + cubeSize).texture(8 / 64f, 2*8/64f).color(255, 255, 255, 200).next();
+        buffer.vertex(r + cubeSize, r, r + cubeSize).uv(2 * 8 / 64f, 2*8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r + cubeSize, r + cubeSize, r + cubeSize).uv(2 * 8 / 64f, 8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r, r + cubeSize, r + cubeSize).uv(8 / 64f, 8 / 64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r, r, r + cubeSize).uv(8 / 64f, 2*8/64f).color(255, 255, 255, 200).endVertex();
 
         //left
-        buffer.vertex(r + cubeSize, r + cubeSize, r).texture(0, 8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r + cubeSize, r + cubeSize, r + cubeSize).texture(8/64f, 8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r + cubeSize, r, r + cubeSize).texture(8/64f, 2*8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r+cubeSize, r, r).texture(0, 2*8/64f).color(255, 255, 255, 200).next();
+        buffer.vertex(r + cubeSize, r + cubeSize, r).uv(0, 8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r + cubeSize, r + cubeSize, r + cubeSize).uv(8/64f, 8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r + cubeSize, r, r + cubeSize).uv(8/64f, 2*8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r+cubeSize, r, r).uv(0, 2*8/64f).color(255, 255, 255, 200).endVertex();
 
         //right
-        buffer.vertex(r, r + cubeSize, r + cubeSize).texture(2*8/64f, 8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r, r + cubeSize, r).texture(3*8/64f, 8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r, r, r).texture(3*8/64f, 2*8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r, r, r + cubeSize).texture(2 * 8 / 64f, 2 * 8 / 64f).color(255, 255, 255, 200).next();
+        buffer.vertex(r, r + cubeSize, r + cubeSize).uv(2*8/64f, 8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r, r + cubeSize, r).uv(3*8/64f, 8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r, r, r).uv(3*8/64f, 2*8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r, r, r + cubeSize).uv(2 * 8 / 64f, 2 * 8 / 64f).color(255, 255, 255, 200).endVertex();
 
         //bottom
-        buffer.vertex(r + cubeSize, r, r).texture(3*8/64f, 0).color(255, 255, 255, 200).next();
-        buffer.vertex(r + cubeSize, r, r + cubeSize).texture(3*8/64f, 8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r, r, r + cubeSize).texture(2*8/64f, 8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r, r, r).texture(2 * 8 / 64f, 0).color(255, 255, 255, 200).next();
+        buffer.vertex(r + cubeSize, r, r).uv(3*8/64f, 0).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r + cubeSize, r, r + cubeSize).uv(3*8/64f, 8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r, r, r + cubeSize).uv(2*8/64f, 8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r, r, r).uv(2 * 8 / 64f, 0).color(255, 255, 255, 200).endVertex();
 
         //top
-        buffer.vertex(r, r + cubeSize, r).texture(8/64f, 0).color(255, 255, 255, 200).next();
-        buffer.vertex(r, r + cubeSize, r + cubeSize).texture(8/64f, 8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r + cubeSize, r + cubeSize, r + cubeSize).texture(2*8/64f, 8/64f).color(255, 255, 255, 200).next();
-        buffer.vertex(r + cubeSize, r + cubeSize, r).texture(2 * 8 / 64f, 0).color(255, 255, 255, 200).next();
+        buffer.vertex(r, r + cubeSize, r).uv(8/64f, 0).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r, r + cubeSize, r + cubeSize).uv(8/64f, 8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r + cubeSize, r + cubeSize, r + cubeSize).uv(2*8/64f, 8/64f).color(255, 255, 255, 200).endVertex();
+        buffer.vertex(r + cubeSize, r + cubeSize, r).uv(2 * 8 / 64f, 0).color(255, 255, 255, 200).endVertex();
 
         //#if MC>=11700
         RenderSystem.applyModelViewMatrix();
         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
         //#endif
-        tessellator.draw();
+        tessellator.end();
 
         popMatrix();
     }

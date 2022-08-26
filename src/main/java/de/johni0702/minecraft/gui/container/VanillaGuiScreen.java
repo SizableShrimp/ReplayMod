@@ -1,5 +1,6 @@
 package de.johni0702.minecraft.gui.container;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import de.johni0702.minecraft.gui.function.Draggable;
 import de.johni0702.minecraft.gui.function.Scrollable;
 import de.johni0702.minecraft.gui.function.Tickable;
@@ -15,8 +16,6 @@ import de.johni0702.minecraft.gui.versions.callbacks.MouseCallback;
 import de.johni0702.minecraft.gui.versions.callbacks.OpenGuiScreenCallback;
 import de.johni0702.minecraft.gui.versions.callbacks.PostRenderScreenCallback;
 import de.johni0702.minecraft.gui.versions.callbacks.PreTickCallback;
-import net.minecraft.client.util.math.MatrixStack;
-
 import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -24,10 +23,10 @@ import java.util.WeakHashMap;
 
 public class VanillaGuiScreen extends GuiScreen implements Draggable, Typeable, Scrollable, Tickable {
 
-    private static final Map<net.minecraft.client.gui.screen.Screen, VanillaGuiScreen> WRAPPERS =
+    private static final Map<net.minecraft.client.gui.screens.Screen, VanillaGuiScreen> WRAPPERS =
             Collections.synchronizedMap(new WeakHashMap<>());
 
-    public static VanillaGuiScreen wrap(net.minecraft.client.gui.screen.Screen originalGuiScreen) {
+    public static VanillaGuiScreen wrap(net.minecraft.client.gui.screens.Screen originalGuiScreen) {
         VanillaGuiScreen gui = WRAPPERS.get(originalGuiScreen);
         if (gui == null) {
             WRAPPERS.put(originalGuiScreen, gui = new VanillaGuiScreen(originalGuiScreen));
@@ -39,16 +38,16 @@ public class VanillaGuiScreen extends GuiScreen implements Draggable, Typeable, 
     // Use wrap instead and make sure to preserve the existing layout.
     // (or if you really want your own, inline this code)
     @Deprecated
-    public static VanillaGuiScreen setup(net.minecraft.client.gui.screen.Screen originalGuiScreen) {
+    public static VanillaGuiScreen setup(net.minecraft.client.gui.screens.Screen originalGuiScreen) {
         VanillaGuiScreen gui = new VanillaGuiScreen(originalGuiScreen);
         gui.register();
         return gui;
     }
 
-    private final net.minecraft.client.gui.screen.Screen mcScreen;
+    private final net.minecraft.client.gui.screens.Screen mcScreen;
     private final EventHandler eventHandler = new EventHandler();
 
-    public VanillaGuiScreen(net.minecraft.client.gui.screen.Screen mcScreen) {
+    public VanillaGuiScreen(net.minecraft.client.gui.screens.Screen mcScreen) {
         this.mcScreen = mcScreen;
         this.suppressVanillaKeys = true;
 
@@ -72,7 +71,7 @@ public class VanillaGuiScreen extends GuiScreen implements Draggable, Typeable, 
     }
 
     @Override
-    public net.minecraft.client.gui.screen.Screen toMinecraft() {
+    public net.minecraft.client.gui.screens.Screen toMinecraft() {
         return mcScreen;
     }
 
@@ -81,7 +80,7 @@ public class VanillaGuiScreen extends GuiScreen implements Draggable, Typeable, 
         throw new UnsupportedOperationException("Cannot set background of vanilla gui screen.");
     }
 
-    private net.minecraft.client.gui.screen.Screen getSuperMcGui() {
+    private net.minecraft.client.gui.screens.Screen getSuperMcGui() {
         return super.toMinecraft();
     }
 
@@ -135,7 +134,7 @@ public class VanillaGuiScreen extends GuiScreen implements Draggable, Typeable, 
         // TODO this is a workaround for ReplayMod#560 until we remove the inner mc screen
         //      see also the note in ReplayMod's GuiBackgroundProcesses
         // If this screen ever becomes the main screen, something has gone wrong.
-        if (getSuperMcGui() == getMinecraft().currentScreen) {
+        if (getSuperMcGui() == getMinecraft().screen) {
             getMinecraft().setScreen(null);
         }
     }
@@ -165,7 +164,7 @@ public class VanillaGuiScreen extends GuiScreen implements Draggable, Typeable, 
         }
 
         { on(InitScreenCallback.Pre.EVENT, this::preGuiInit); }
-        private void preGuiInit(net.minecraft.client.gui.screen.Screen screen) {
+        private void preGuiInit(net.minecraft.client.gui.screens.Screen screen) {
             if (screen == mcScreen && active) {
                 active = false;
                 unregister();
@@ -175,7 +174,7 @@ public class VanillaGuiScreen extends GuiScreen implements Draggable, Typeable, 
         }
 
         { on(PostRenderScreenCallback.EVENT, this::onGuiRender); }
-        private void onGuiRender(MatrixStack stack, float partialTicks) {
+        private void onGuiRender(PoseStack stack, float partialTicks) {
             Point mousePos = MouseUtils.getMousePos();
             getSuperMcGui().render(
                     //#if MC>=11600

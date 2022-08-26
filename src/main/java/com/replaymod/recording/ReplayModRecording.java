@@ -11,7 +11,6 @@ import com.replaymod.recording.mixin.NetworkManagerAccessor;
 import com.replaymod.recording.packet.PacketListener;
 import io.netty.channel.Channel;
 import io.netty.util.AttributeKey;
-import net.minecraft.network.ClientConnection;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -24,6 +23,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 //#else
 //$$ import net.minecraftforge.fml.network.NetworkRegistry;
 //#endif
+import net.minecraft.network.Connection;
 
 //#if MC>=11400
 //#else
@@ -91,7 +91,7 @@ public class ReplayModRecording implements Module {
     //$$ private static class RestrictionsChannelHandler extends ChannelDuplexHandler {}
     //#endif
 
-    public void initiateRecording(ClientConnection networkManager) {
+    public void initiateRecording(Connection networkManager) {
         Channel channel = ((NetworkManagerAccessor) networkManager).getChannel();
         if (channel.pipeline().get("ReplayModReplay_replaySender") != null) return;
         //#if MC>=11400

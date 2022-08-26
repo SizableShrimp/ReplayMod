@@ -44,17 +44,18 @@ import de.johni0702.minecraft.gui.utils.lwjgl.ReadableDimension;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadablePoint;
 import de.johni0702.minecraft.gui.versions.MCVer;
 import de.johni0702.minecraft.gui.versions.MCVer.Keyboard;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.crash.CrashException;
-import net.minecraft.util.crash.CrashReport;
-import net.minecraft.util.crash.CrashReportSection;
+import net.minecraft.CrashReport;
+import net.minecraft.CrashReportCategory;
+import net.minecraft.ReportedException;
+import net.minecraft.network.chat.Component;
 
 import static de.johni0702.minecraft.gui.versions.MCVer.literalText;
 //#else
 //$$ import org.lwjgl.input.Keyboard;
 //$$ import org.lwjgl.input.Mouse;
 //#endif
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 //#if MC>=10800
 
@@ -78,7 +79,7 @@ public abstract class AbstractGuiScreen<T extends AbstractGuiScreen<T>> extends 
 
     protected boolean suppressVanillaKeys;
 
-    public net.minecraft.client.gui.screen.Screen toMinecraft() {
+    public net.minecraft.client.gui.screens.Screen toMinecraft() {
         return wrapped;
     }
 
@@ -120,7 +121,7 @@ public abstract class AbstractGuiScreen<T extends AbstractGuiScreen<T>> extends 
                     break;
                 case DIRT:
                     //#if MC>=11600
-                    wrapped.renderBackgroundTexture(0);
+                    wrapped.renderDirtBackground(0);
                     //#else
                     //$$ wrapped.renderDirtBackground(0);
                     //#endif
@@ -154,17 +155,17 @@ public abstract class AbstractGuiScreen<T extends AbstractGuiScreen<T>> extends 
                     OffsetGuiRenderer eRenderer = new OffsetGuiRenderer(renderer, position, tooltipSize);
                     tooltip.draw(eRenderer, tooltipSize, renderInfo);
                 } catch (Exception ex) {
-                    CrashReport crashReport = CrashReport.create(ex, "Rendering Gui Tooltip");
+                    CrashReport crashReport = CrashReport.forThrowable(ex, "Rendering Gui Tooltip");
                     renderInfo.addTo(crashReport);
-                    CrashReportSection category = crashReport.addElement("Gui container details");
+                    CrashReportCategory category = crashReport.addCategory("Gui container details");
                     MCVer.addDetail(category, "Container", this::toString);
                     MCVer.addDetail(category, "Width", () -> "" + size.getWidth());
                     MCVer.addDetail(category, "Height", () -> "" + size.getHeight());
-                    category = crashReport.addElement("Tooltip details");
+                    category = crashReport.addCategory("Tooltip details");
                     MCVer.addDetail(category, "Element", tooltip::toString);
                     MCVer.addDetail(category, "Position", position::toString);
                     MCVer.addDetail(category, "Size", tooltipSize::toString);
-                    throw new CrashException(crashReport);
+                    throw new ReportedException(crashReport);
                 }
             }
         }
@@ -211,7 +212,7 @@ public abstract class AbstractGuiScreen<T extends AbstractGuiScreen<T>> extends 
         this.title = title;
     }
 
-    protected class MinecraftGuiScreen extends net.minecraft.client.gui.screen.Screen {
+    protected class MinecraftGuiScreen extends net.minecraft.client.gui.screens.Screen {
         private boolean active;
 
         //#if MC>=11400
@@ -220,7 +221,7 @@ public abstract class AbstractGuiScreen<T extends AbstractGuiScreen<T>> extends 
         }
 
         @Override
-        public Text getTitle() {
+        public Component getTitle() {
             GuiLabel title = AbstractGuiScreen.this.title;
             return literalText(title == null ? "" : title.getText());
         }
@@ -228,7 +229,7 @@ public abstract class AbstractGuiScreen<T extends AbstractGuiScreen<T>> extends 
 
         @Override
         //#if MC>=11600
-        public void render(MatrixStack stack, int mouseX, int mouseY, float partialTicks) {
+        public void render(PoseStack stack, int mouseX, int mouseY, float partialTicks) {
         //#else
         //#if MC>=11400
         //$$ public void render(int mouseX, int mouseY, float partialTicks) {

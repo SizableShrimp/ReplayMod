@@ -1,19 +1,14 @@
 //#if MC>=10800
 package com.replaymod.replay.mixin;
 
-import net.minecraft.client.render.BuiltChunkStorage;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.renderer.ViewArea;
+import net.minecraft.client.renderer.chunk.ChunkRenderDispatcher.RenderChunk;
+import net.minecraft.core.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-//#if MC>=11500
-import net.minecraft.client.render.chunk.ChunkBuilder.BuiltChunk;
-//#else
-//$$ import net.minecraft.client.render.chunk.ChunkRenderer;
-//#endif
-
-@Mixin(BuiltChunkStorage.class)
+@Mixin(ViewArea.class)
 public abstract class MixinViewFrustum {
     @Redirect(
             method = "updateCameraPosition",
@@ -32,7 +27,7 @@ public abstract class MixinViewFrustum {
     )
     private void replayModReplay_updatePositionAndMarkForUpdate(
             //#if MC>=11500
-            BuiltChunk renderChunk,
+            RenderChunk renderChunk,
             //#else
             //$$ ChunkRenderer renderChunk,
             //#endif
@@ -48,7 +43,7 @@ public abstract class MixinViewFrustum {
         if (!pos.equals(renderChunk.getOrigin())) {
             //#if MC>=10904
             renderChunk.setOrigin(x, y, z);
-            renderChunk.scheduleRebuild(false);
+            renderChunk.setDirty(false);
             //#else
             //$$ renderChunk.setPosition(pos);
             //$$ renderChunk.setNeedsUpdate(true);

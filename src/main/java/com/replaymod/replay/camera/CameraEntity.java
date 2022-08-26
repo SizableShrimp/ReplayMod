@@ -18,77 +18,31 @@ import com.replaymod.replay.ReplayModReplay;
 import com.replaymod.replay.Setting;
 import com.replaymod.replay.mixin.FirstPersonRendererAccessor;
 import com.replaymod.replaystudio.util.Location;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.decoration.ItemFrameEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.stat.StatHandler;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-
-//#if FABRIC>=1
-//#else
-//$$ import net.minecraftforge.client.event.EntityViewRenderEvent;
-//$$ import net.minecraftforge.client.event.RenderGameOverlayEvent;
-//$$ import net.minecraftforge.common.MinecraftForge;
-//$$ import net.minecraftforge.eventbus.api.EventPriority;
-//$$ import net.minecraftforge.eventbus.api.SubscribeEvent;
-//#endif
-
-//#if MC>=11400
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.fluid.Fluid;
-//#if MC>=11802
-import net.minecraft.tag.TagKey;
-//#else
-//$$ import net.minecraft.tag.Tag;
-//#endif
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-//#else
-//$$ import com.replaymod.replay.events.ReplayChatMessageEvent;
-//$$ import net.minecraft.util.math.RayTraceResult;
-//$$ import net.minecraft.util.text.ITextComponent;
-//$$ import net.minecraft.world.World;
-//$$
-//#if MC>=11400
-//$$ import net.minecraft.util.math.RayTraceFluidMode;
-//#else
-//$$ import net.minecraft.block.material.Material;
-//$$ import net.minecraft.entity.EntityLivingBase;
-//#endif
-//#endif
-
-//#if MC>=10904
-import net.minecraft.entity.EquipmentSlot;
-//#if MC>=11200
-//#if MC>=11400
-import net.minecraft.client.recipebook.ClientRecipeBook;
-//#else
-//$$ import net.minecraft.stats.RecipeBook;
-//#endif
-//#endif
-import net.minecraft.util.Arm;
-import net.minecraft.util.Hand;
-//#endif
-
-//#if MC>=10800
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.entity.PlayerModelPart;
-//#else
-//$$ import net.minecraft.client.entity.EntityClientPlayerMP;
-//$$ import net.minecraft.util.Session;
-//#endif
-
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
+import net.minecraft.client.ClientRecipeBook;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.stats.StatsCounter;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.PlayerModelPart;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 
 import static com.replaymod.core.versions.MCVer.*;
 
@@ -100,7 +54,7 @@ import static com.replaymod.core.versions.MCVer.*;
 @SuppressWarnings("EntityConstructor")
 public class CameraEntity
         //#if MC>=10800
-        extends ClientPlayerEntity
+        extends LocalPlayer
         //#else
         //$$ extends EntityClientPlayerMP
         //#endif
@@ -129,17 +83,17 @@ public class CameraEntity
     private EventHandler eventHandler = new EventHandler();
 
     public CameraEntity(
-            MinecraftClient mcIn,
+            Minecraft mcIn,
             //#if MC>=11400
-            ClientWorld worldIn,
+            ClientLevel worldIn,
             //#else
             //$$ World worldIn,
             //#endif
             //#if MC<10800
             //$$ Session session,
             //#endif
-            ClientPlayNetworkHandler netHandlerPlayClient,
-            StatHandler statisticsManager
+            ClientPacketListener netHandlerPlayClient,
+            StatsCounter statisticsManager
             //#if MC>=11200
             //#if MC>=11400
             , ClientRecipeBook recipeBook
@@ -164,7 +118,7 @@ public class CameraEntity
                 //#endif
         );
         //#if MC>=10900
-        setUuid(CAMERA_UUID);
+        setUUID(CAMERA_UUID);
         //#else
         //$$ entityUniqueID = CAMERA_UUID;
         //#endif
@@ -201,10 +155,10 @@ public class CameraEntity
      * @param z Z coordinate
      */
     public void setCameraPosition(double x, double y, double z) {
-        this.lastRenderX = this.prevX = x;
-        this.lastRenderY = this.prevY = y;
-        this.lastRenderZ = this.prevZ = z;
-        this.setPos(x, y, z);
+        this.xOld = this.xo = x;
+        this.yOld = this.yo = y;
+        this.zOld = this.zo = z;
+        this.setPosRaw(x, y, z);
         updateBoundingBox();
     }
 
@@ -215,10 +169,10 @@ public class CameraEntity
      * @param roll Roll in degrees
      */
     public void setCameraRotation(float yaw, float pitch, float roll) {
-        this.prevYaw = yaw;
-        this.prevPitch = pitch;
-        this.setYaw(yaw);
-        this.setPitch(pitch);
+        this.yRotO = yaw;
+        this.xRotO = pitch;
+        this.setYRot(yaw);
+        this.setXRot(pitch);
         this.roll = roll;
     }
 
@@ -242,48 +196,48 @@ public class CameraEntity
         //#else
         //$$ float yOffset = 1.62f; // Magic value (eye height) from EntityRenderer#orientCamera
         //#endif
-        this.prevX = to.prevX;
-        this.prevY = to.prevY + yOffset;
-        this.prevZ = to.prevZ;
-        this.prevYaw = to.prevYaw;
-        this.prevPitch = to.prevPitch;
-        this.setPos(to.getX(), to.getY(), to.getZ());
-        this.setYaw(to.getYaw());
-        this.setPitch(to.getPitch());
-        this.lastRenderX = to.lastRenderX;
-        this.lastRenderY = to.lastRenderY + yOffset;
-        this.lastRenderZ = to.lastRenderZ;
+        this.xo = to.xo;
+        this.yo = to.yo + yOffset;
+        this.zo = to.zo;
+        this.yRotO = to.yRotO;
+        this.xRotO = to.xRotO;
+        this.setPosRaw(to.getX(), to.getY(), to.getZ());
+        this.setYRot(to.getYRot());
+        this.setXRot(to.getXRot());
+        this.xOld = to.xOld;
+        this.yOld = to.yOld + yOffset;
+        this.zOld = to.zOld;
         this.wrapArmYaw();
         updateBoundingBox();
     }
 
     //#if MC>=11400
     @Override
-    public float getYaw(float tickDelta) {
-        Entity view = this.client.getCameraEntity();
+    public float getViewYRot(float tickDelta) {
+        Entity view = this.minecraft.getCameraEntity();
         if (view != null && view != this) {
-            return this.prevYaw + (this.getYaw() - this.prevYaw) * tickDelta;
+            return this.yRotO + (this.getYRot() - this.yRotO) * tickDelta;
         }
-        return super.getYaw(tickDelta);
+        return super.getViewYRot(tickDelta);
     }
 
     @Override
-    public float getPitch(float tickDelta) {
-        Entity view = this.client.getCameraEntity();
+    public float getViewXRot(float tickDelta) {
+        Entity view = this.minecraft.getCameraEntity();
         if (view != null && view != this) {
-            return this.prevPitch + (this.getPitch() - this.prevPitch) * tickDelta;
+            return this.xRotO + (this.getXRot() - this.xRotO) * tickDelta;
         }
-        return super.getPitch(tickDelta);
+        return super.getViewXRot(tickDelta);
     }
     //#endif
 
     private void updateBoundingBox() {
         //#if MC>=11400
-        float width = getWidth();
-        float height = getHeight();
+        float width = getBbWidth();
+        float height = getBbHeight();
         //#endif
         //#if MC>=10800
-        setBoundingBox(new Box(
+        setBoundingBox(new AABB(
         //#else
         //$$ this.boundingBox.setBB(AxisAlignedBB.getBoundingBox(
         //#endif
@@ -298,25 +252,25 @@ public class CameraEntity
         //#else
         //$$ EntityLivingBase view =
         //#endif
-            this.client.getCameraEntity();
+            this.minecraft.getCameraEntity();
         if (view != null) {
             // Make sure we're always spectating the right entity
             // This is important if the spectated player respawns as their
             // entity is recreated and we have to spectate a new entity
             UUID spectating = ReplayModReplay.instance.getReplayHandler().getSpectatedUUID();
-            if (spectating != null && (view.getUuid() != spectating
-                    || view.world != this.world)
-                    || this.world.getEntityById(view.getId()) != view) {
+            if (spectating != null && (view.getUUID() != spectating
+                    || view.level != this.level)
+                    || this.level.getEntity(view.getId()) != view) {
                 if (spectating == null) {
                     // Entity (non-player) died, stop spectating
                     ReplayModReplay.instance.getReplayHandler().spectateEntity(this);
                     return;
                 }
-                view = this.world.getPlayerByUuid(spectating);
+                view = this.level.getPlayerByUUID(spectating);
                 if (view != null) {
-                    this.client.setCameraEntity(view);
+                    this.minecraft.setCameraEntity(view);
                 } else {
-                    this.client.setCameraEntity(this);
+                    this.minecraft.setCameraEntity(this);
                     return;
                 }
             }
@@ -329,25 +283,25 @@ public class CameraEntity
     }
 
     @Override
-    public void init() {
+    public void resetPos() {
         // Make sure our world is up-to-date in case of world changes
-        if (this.client.world != null) {
-            this.world = this.client.world;
+        if (this.minecraft.level != null) {
+            this.level = this.minecraft.level;
         }
-        super.init();
+        super.resetPos();
     }
 
     @Override
-    public void setRotation(float yaw, float pitch) {
-        if (this.client.getCameraEntity() == this) {
+    public void setRot(float yaw, float pitch) {
+        if (this.minecraft.getCameraEntity() == this) {
             // Only update camera rotation when the camera is the view
-            super.setRotation(yaw, pitch);
+            super.setRot(yaw, pitch);
         }
     }
 
     @Override
-    public boolean isInsideWall() {
-        return falseUnlessSpectating(Entity::isInsideWall); // Make sure no suffocation overlay is rendered
+    public boolean isInWall() {
+        return falseUnlessSpectating(Entity::isInWall); // Make sure no suffocation overlay is rendered
     }
 
     //#if MC<11400
@@ -359,19 +313,19 @@ public class CameraEntity
 
     //#if MC>=11400
     @Override
-    public boolean isSubmergedIn(
+    public boolean isEyeInFluid(
             //#if MC>=11802
             TagKey<Fluid> fluid
             //#else
             //$$ Tag<Fluid> fluid
             //#endif
     ) {
-        return falseUnlessSpectating(entity -> entity.isSubmergedIn(fluid));
+        return falseUnlessSpectating(entity -> entity.isEyeInFluid(fluid));
     }
 
     @Override
-    public float getUnderwaterVisibility() {
-        return falseUnlessSpectating(__ -> true) ? super.getUnderwaterVisibility() : 1f;
+    public float getWaterVision() {
+        return falseUnlessSpectating(__ -> true) ? super.getWaterVision() : 1f;
     }
     //#else
     //#if MC>=10800
@@ -398,7 +352,7 @@ public class CameraEntity
     }
 
     private boolean falseUnlessSpectating(Function<Entity, Boolean> property) {
-        Entity view = this.client.getCameraEntity();
+        Entity view = this.minecraft.getCameraEntity();
         if (view != null && view != this) {
             return property.apply(view);
         }
@@ -412,13 +366,13 @@ public class CameraEntity
 
     //#if MC>=10800
     @Override
-    protected void spawnSprintingParticles() {
+    protected void spawnSprintParticle() {
         // We do not produce any particles, we are a camera
     }
     //#endif
 
     @Override
-    public boolean canHit() {
+    public boolean isPickable() {
         return false; // We are a camera, we cannot collide
     }
 
@@ -447,10 +401,10 @@ public class CameraEntity
 
     //#if MC>=10800
     @Override
-    public float getFovMultiplier() {
-        Entity view = this.client.getCameraEntity();
-        if (view != this && view instanceof AbstractClientPlayerEntity) {
-            return ((AbstractClientPlayerEntity) view).getFovMultiplier();
+    public float getFieldOfViewModifier() {
+        Entity view = this.minecraft.getCameraEntity();
+        if (view != this && view instanceof AbstractClientPlayer) {
+            return ((AbstractClientPlayer) view).getFieldOfViewModifier();
         }
         return 1;
     }
@@ -463,7 +417,7 @@ public class CameraEntity
 
     @Override
     public boolean isInvisible() {
-        Entity view = this.client.getCameraEntity();
+        Entity view = this.minecraft.getCameraEntity();
         if (view != this) {
             return view.isInvisible();
         }
@@ -471,88 +425,88 @@ public class CameraEntity
     }
 
     @Override
-    public Identifier getSkinTexture() {
-        Entity view = this.client.getCameraEntity();
-        if (view != this && view instanceof AbstractClientPlayerEntity) {
-            return ((AbstractClientPlayerEntity) view).getSkinTexture();
+    public ResourceLocation getSkinTextureLocation() {
+        Entity view = this.minecraft.getCameraEntity();
+        if (view != this && view instanceof AbstractClientPlayer) {
+            return ((AbstractClientPlayer) view).getSkinTextureLocation();
         }
-        return super.getSkinTexture();
+        return super.getSkinTextureLocation();
     }
 
     //#if MC>=10800
     @Override
-    public String getModel() {
-        Entity view = this.client.getCameraEntity();
-        if (view != this && view instanceof AbstractClientPlayerEntity) {
-            return ((AbstractClientPlayerEntity) view).getModel();
+    public String getModelName() {
+        Entity view = this.minecraft.getCameraEntity();
+        if (view != this && view instanceof AbstractClientPlayer) {
+            return ((AbstractClientPlayer) view).getModelName();
         }
-        return super.getModel();
+        return super.getModelName();
     }
 
     @Override
-    public boolean isPartVisible(PlayerModelPart modelPart) {
-        Entity view = this.client.getCameraEntity();
-        if (view != this && view instanceof PlayerEntity) {
-            return ((PlayerEntity) view).isPartVisible(modelPart);
+    public boolean isModelPartShown(PlayerModelPart modelPart) {
+        Entity view = this.minecraft.getCameraEntity();
+        if (view != this && view instanceof Player) {
+            return ((Player) view).isModelPartShown(modelPart);
         }
-        return super.isPartVisible(modelPart);
+        return super.isModelPartShown(modelPart);
     }
     //#endif
 
     //#if MC>=10904
     @Override
-    public Arm getMainArm() {
-        Entity view = this.client.getCameraEntity();
-        if (view != this && view instanceof PlayerEntity) {
-            return ((PlayerEntity) view).getMainArm();
+    public HumanoidArm getMainArm() {
+        Entity view = this.minecraft.getCameraEntity();
+        if (view != this && view instanceof Player) {
+            return ((Player) view).getMainArm();
         }
         return super.getMainArm();
     }
     //#endif
 
     @Override
-    public float getHandSwingProgress(float renderPartialTicks) {
-        Entity view = this.client.getCameraEntity();
-        if (view != this && view instanceof PlayerEntity) {
-            return ((PlayerEntity) view).getHandSwingProgress(renderPartialTicks);
+    public float getAttackAnim(float renderPartialTicks) {
+        Entity view = this.minecraft.getCameraEntity();
+        if (view != this && view instanceof Player) {
+            return ((Player) view).getAttackAnim(renderPartialTicks);
         }
         return 0;
     }
 
     //#if MC>=10904
     @Override
-    public float getAttackCooldownProgressPerTick() {
-        Entity view = this.client.getCameraEntity();
-        if (view != this && view instanceof PlayerEntity) {
-            return ((PlayerEntity) view).getAttackCooldownProgressPerTick();
+    public float getCurrentItemAttackStrengthDelay() {
+        Entity view = this.minecraft.getCameraEntity();
+        if (view != this && view instanceof Player) {
+            return ((Player) view).getCurrentItemAttackStrengthDelay();
         }
         return 1;
     }
 
     @Override
-    public float getAttackCooldownProgress(float adjustTicks) {
-        Entity view = this.client.getCameraEntity();
-        if (view != this && view instanceof PlayerEntity) {
-            return ((PlayerEntity) view).getAttackCooldownProgress(adjustTicks);
+    public float getAttackStrengthScale(float adjustTicks) {
+        Entity view = this.minecraft.getCameraEntity();
+        if (view != this && view instanceof Player) {
+            return ((Player) view).getAttackStrengthScale(adjustTicks);
         }
         // Default to 1 as to not render the cooldown indicator (renders for < 1)
         return 1;
     }
 
     @Override
-    public Hand getActiveHand() {
-        Entity view = this.client.getCameraEntity();
-        if (view != this && view instanceof PlayerEntity) {
-            return ((PlayerEntity) view).getActiveHand();
+    public InteractionHand getUsedItemHand() {
+        Entity view = this.minecraft.getCameraEntity();
+        if (view != this && view instanceof Player) {
+            return ((Player) view).getUsedItemHand();
         }
-        return super.getActiveHand();
+        return super.getUsedItemHand();
     }
 
     @Override
     public boolean isUsingItem() {
-        Entity view = this.client.getCameraEntity();
-        if (view != this && view instanceof PlayerEntity) {
-            return ((PlayerEntity) view).isUsingItem();
+        Entity view = this.minecraft.getCameraEntity();
+        if (view != this && view instanceof Player) {
+            return ((Player) view).isUsingItem();
         }
         return super.isUsingItem();
     }
@@ -560,7 +514,7 @@ public class CameraEntity
     //#if MC>=11400
     @Override
     //#if MC>=11900
-    public void onEquipStack(EquipmentSlot slot, ItemStack stack, ItemStack itemStack) {
+    public void onEquipItem(EquipmentSlot slot, ItemStack stack, ItemStack itemStack) {
     //#else
     //$$ protected void onEquipStack(ItemStack itemStack_1) {
     //#endif
@@ -570,13 +524,13 @@ public class CameraEntity
 
     //#if MC>=11400
     @Override
-    public HitResult raycast(double maxDistance, float tickDelta, boolean fluids) {
-        HitResult result = super.raycast(maxDistance, tickDelta, fluids);
+    public HitResult pick(double maxDistance, float tickDelta, boolean fluids) {
+        HitResult result = super.pick(maxDistance, tickDelta, fluids);
 
         // Make sure we can never look at blocks (-> no outline)
         if (result instanceof BlockHitResult) {
             BlockHitResult blockResult = (BlockHitResult) result;
-            result = BlockHitResult.createMissed(result.getPos(), blockResult.getSide(), blockResult.getBlockPos());
+            result = BlockHitResult.miss(result.getLocation(), blockResult.getDirection(), blockResult.getBlockPos());
         }
 
         return result;
@@ -645,8 +599,8 @@ public class CameraEntity
     }
 
     private void update() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.world != this.world) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != this.level) {
             if (eventHandler != null) {
                 eventHandler.unregister();
                 eventHandler = null;
@@ -662,27 +616,27 @@ public class CameraEntity
         handleInputEvents();
 
         Map<String, KeyBindingRegistry.Binding> keyBindings = ReplayMod.instance.getKeyBindingRegistry().getBindings();
-        if (keyBindings.get("replaymod.input.rollclockwise").keyBinding.isPressed()) {
+        if (keyBindings.get("replaymod.input.rollclockwise").keyBinding.isDown()) {
             roll += Utils.isCtrlDown() ? 0.2 : 1;
         }
-        if (keyBindings.get("replaymod.input.rollcounterclockwise").keyBinding.isPressed()) {
+        if (keyBindings.get("replaymod.input.rollcounterclockwise").keyBinding.isDown()) {
             roll -= Utils.isCtrlDown() ? 0.2 : 1;
         }
 
         //#if MC>=10800
-        this.noClip = this.isSpectator();
+        this.noPhysics = this.isSpectator();
         //#endif
 
         syncInventory();
     }
 
-    private final PlayerInventory originalInventory = this.getInventory();
+    private final Inventory originalInventory = this.getInventory();
 
     // If we are spectating a player, "steal" its inventory so the rendering code knows what item(s) to render
     // and if we aren't, then reset ours.
     private void syncInventory() {
-        Entity view = this.client.getCameraEntity();
-        PlayerEntity viewPlayer = view != this && view instanceof PlayerEntity ? (PlayerEntity) view : null;
+        Entity view = this.minecraft.getCameraEntity();
+        Player viewPlayer = view != this && view instanceof Player ? (Player) view : null;
         EntityPlayerAccessor cameraA = (EntityPlayerAccessor) this;
         EntityPlayerAccessor viewPlayerA = (EntityPlayerAccessor) viewPlayer;
 
@@ -694,17 +648,17 @@ public class CameraEntity
 
         // TODO switch to replacing the entire inventory for 1.14+ as well, should be easier and faster
         //#if MC>=11400
-        this.equipStack(EquipmentSlot.HEAD, viewPlayer != null ? viewPlayer.getEquippedStack(EquipmentSlot.HEAD) : empty);
-        this.equipStack(EquipmentSlot.MAINHAND, viewPlayer != null ? viewPlayer.getEquippedStack(EquipmentSlot.MAINHAND) : empty);
-        this.equipStack(EquipmentSlot.OFFHAND, viewPlayer != null ? viewPlayer.getEquippedStack(EquipmentSlot.OFFHAND) : empty);
+        this.setItemSlot(EquipmentSlot.HEAD, viewPlayer != null ? viewPlayer.getItemBySlot(EquipmentSlot.HEAD) : empty);
+        this.setItemSlot(EquipmentSlot.MAINHAND, viewPlayer != null ? viewPlayer.getItemBySlot(EquipmentSlot.MAINHAND) : empty);
+        this.setItemSlot(EquipmentSlot.OFFHAND, viewPlayer != null ? viewPlayer.getItemBySlot(EquipmentSlot.OFFHAND) : empty);
         //#else
         //$$ this.inventory = viewPlayer != null ? viewPlayer.inventory : originalInventory;
         //#endif
 
         //#if MC>=10904
         cameraA.setItemStackMainHand(viewPlayerA != null ? viewPlayerA.getItemStackMainHand() : empty);
-        this.preferredHand = viewPlayer != null ? viewPlayer.preferredHand : Hand.MAIN_HAND;
-        this.activeItemStack = viewPlayer != null ? viewPlayer.getActiveItem() : empty;
+        this.swingingArm = viewPlayer != null ? viewPlayer.swingingArm : InteractionHand.MAIN_HAND;
+        this.useItem = viewPlayer != null ? viewPlayer.getUseItem() : empty;
         cameraA.setActiveItemStackUseCount(viewPlayerA != null ? viewPlayerA.getActiveItemStackUseCount() : 0);
         //#else
         //$$ cameraA.setItemInUse(viewPlayerA != null ? viewPlayerA.getItemInUse() : empty);
@@ -713,38 +667,38 @@ public class CameraEntity
     }
 
     private void handleInputEvents() {
-        if (this.client.options.attackKey.wasPressed() || this.client.options.useKey.wasPressed()) {
-            if (this.client.currentScreen == null && canSpectate(this.client.targetedEntity)) {
+        if (this.minecraft.options.keyAttack.consumeClick() || this.minecraft.options.keyUse.consumeClick()) {
+            if (this.minecraft.screen == null && canSpectate(this.minecraft.crosshairPickEntity)) {
                 ReplayModReplay.instance.getReplayHandler().spectateEntity(
                         //#if MC<=10710
                         //$$ (EntityLivingBase)
                         //#endif
-                        this.client.targetedEntity);
+                        this.minecraft.crosshairPickEntity);
                 // Make sure we don't exit right away
                 //noinspection StatementWithEmptyBody
-                while (this.client.options.sneakKey.wasPressed());
+                while (this.minecraft.options.keyShift.consumeClick());
             }
         }
     }
 
     private void updateArmYawAndPitch() {
-        this.lastRenderYaw = this.renderYaw;
-        this.lastRenderPitch = this.renderPitch;
-        this.renderPitch = this.renderPitch +  (this.getPitch() - this.renderPitch) * 0.5f;
-        this.renderYaw = this.renderYaw + wrapDegrees(this.getYaw() - this.renderYaw) * 0.5f;
+        this.yBobO = this.yBob;
+        this.xBobO = this.xBob;
+        this.xBob = this.xBob +  (this.getXRot() - this.xBob) * 0.5f;
+        this.yBob = this.yBob + wrapDegrees(this.getYRot() - this.yBob) * 0.5f;
         this.wrapArmYaw();
     }
 
     /**
-     * Minecraft renders the arm offset based on the difference between {@link #yaw} and {@link #renderYaw}. It does not
-     * wrap around the difference though, so if {@link #yaw} just wrapped around from 350 to 10 but {@link #renderYaw}
+     * Minecraft renders the arm offset based on the difference between {@link #yaw} and {@link #yBob}. It does not
+     * wrap around the difference though, so if {@link #yaw} just wrapped around from 350 to 10 but {@link #yBob}
      * is still at 355, then the difference will be inappropriately large. To fix this, we always wrap the
-     * {@link #renderYaw} such that it is no more than 180 degrees away from {@link #yaw}, even if that requires going
+     * {@link #yBob} such that it is no more than 180 degrees away from {@link #yaw}, even if that requires going
      * outside the normal range.
      */
     private void wrapArmYaw() {
-        this.renderYaw = wrapDegreesTo(this.renderYaw, this.getYaw());
-        this.lastRenderYaw = wrapDegreesTo(this.lastRenderYaw, this.renderYaw);
+        this.yBob = wrapDegreesTo(this.yBob, this.getYRot());
+        this.yBobO = wrapDegreesTo(this.yBobO, this.yBob);
     }
 
     private static float wrapDegreesTo(float value, float towardsValue) {
@@ -792,7 +746,7 @@ public class CameraEntity
     //$$ public // All event handlers need to be public in 1.7.10
     //#endif
     class EventHandler extends EventRegistrations {
-        private final MinecraftClient mc = getMinecraft();
+        private final Minecraft mc = getMinecraft();
 
         private EventHandler() {}
 
@@ -810,7 +764,7 @@ public class CameraEntity
 
         { on(RenderSpectatorCrosshairCallback.EVENT, this::shouldRenderSpectatorCrosshair); }
         private Boolean shouldRenderSpectatorCrosshair() {
-            return canSpectate(mc.targetedEntity);
+            return canSpectate(mc.crosshairPickEntity);
         }
 
         { on(RenderHotbarCallback.EVENT, this::shouldRenderHotbar); }
@@ -833,22 +787,22 @@ public class CameraEntity
         private boolean onRenderHand() {
             // Unless we are spectating another player, don't render our hand
             Entity view = mc.getCameraEntity();
-            if (view == CameraEntity.this || !(view instanceof PlayerEntity)) {
+            if (view == CameraEntity.this || !(view instanceof Player)) {
                 return true; // cancel hand rendering
             } else {
-                PlayerEntity player = (PlayerEntity) view;
+                Player player = (Player) view;
                 // When the spectated player has changed, force equip their items to prevent the equip animation
                 if (lastHandRendered != player) {
                     lastHandRendered = player;
 
-                    FirstPersonRendererAccessor acc = (FirstPersonRendererAccessor) mc.gameRenderer.firstPersonRenderer;
+                    FirstPersonRendererAccessor acc = (FirstPersonRendererAccessor) mc.gameRenderer.itemInHandRenderer;
                     //#if MC>=10904
                     acc.setPrevEquippedProgressMainHand(1);
                     acc.setPrevEquippedProgressOffHand(1);
                     acc.setEquippedProgressMainHand(1);
                     acc.setEquippedProgressOffHand(1);
-                    acc.setItemStackMainHand(player.getEquippedStack(EquipmentSlot.MAINHAND));
-                    acc.setItemStackOffHand(player.getEquippedStack(EquipmentSlot.OFFHAND));
+                    acc.setItemStackMainHand(player.getItemBySlot(EquipmentSlot.MAINHAND));
+                    acc.setItemStackOffHand(player.getItemBySlot(EquipmentSlot.OFFHAND));
                     //#else
                     //$$ acc.setPrevEquippedProgress(1);
                     //$$ acc.setEquippedProgress(1);
@@ -857,8 +811,8 @@ public class CameraEntity
                     //#endif
 
 
-                    mc.player.renderYaw = mc.player.lastRenderYaw = player.getYaw();
-                    mc.player.renderPitch = mc.player.lastRenderPitch = player.getPitch();
+                    mc.player.yBob = mc.player.yBobO = player.getYRot();
+                    mc.player.xBob = mc.player.xBobO = player.getXRot();
                 }
                 return false;
             }

@@ -5,23 +5,6 @@ import com.replaymod.recording.mixin.IntegratedServerAccessor;
 import com.replaymod.recording.packet.PacketListener;
 import de.johni0702.minecraft.gui.utils.EventRegistrations;
 import de.johni0702.minecraft.gui.versions.callbacks.PreTickCallback;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.network.packet.s2c.play.BlockBreakingProgressS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityAnimationS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityAttachS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityEquipmentUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityPositionS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntitySetHeadYawS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerSpawnS2CPacket;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.Packet;
-import net.minecraft.server.integrated.IntegratedServer;
-// FIXME not (yet?) 1.13 import net.minecraftforge.event.entity.minecart.MinecartInteractEvent;
 
 //#if FABRIC<1
 //$$ import net.minecraft.network.play.server.SCollectItemPacket;
@@ -34,41 +17,40 @@ import net.minecraft.server.integrated.IntegratedServer;
 import com.mojang.datafixers.util.Pair;
 import java.util.Collections;
 //#endif
-
-//#if MC>=11400
-//#else
-//$$ import net.minecraft.network.play.server.SPacketUseBed;
-//#endif
-
-//#if MC>=11100
-import net.minecraft.util.collection.DefaultedList;
-//#endif
-
-//#if MC>=10904
-import net.minecraft.network.packet.s2c.play.EntityTrackerUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.WorldEventS2CPacket;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.util.Hand;
-//#endif
-
-//#if MC>=10800
-import net.minecraft.util.math.BlockPos;
-//#else
-//$$ import net.minecraft.util.MathHelper;
-//#endif
-
 import java.util.List;
 import java.util.Objects;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.server.IntegratedServer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.NonNullList;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundAddPlayerPacket;
+import net.minecraft.network.protocol.game.ClientboundAnimatePacket;
+import net.minecraft.network.protocol.game.ClientboundBlockDestructionPacket;
+import net.minecraft.network.protocol.game.ClientboundLevelEventPacket;
+import net.minecraft.network.protocol.game.ClientboundMoveEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundRotateHeadPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityLinkPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
+import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
 import static com.replaymod.core.versions.MCVer.*;
 
 public class RecordingEventHandler extends EventRegistrations {
 
-    private final MinecraftClient mc = getMinecraft();
+    private final Minecraft mc = getMinecraft();
     private final PacketListener packetListener;
 
     private Double lastX, lastY, lastZ;
-    private final List<ItemStack> playerItems = DefaultedList.ofSize(6, ItemStack.EMPTY);
+    private final List<ItemStack> playerItems = NonNullList.withSize(6, ItemStack.EMPTY);
     private int ticksSinceLastCorrection;
     private boolean wasSleeping;
     private int lastRiding = -1;
@@ -81,13 +63,13 @@ public class RecordingEventHandler extends EventRegistrations {
     @Override
     public void register() {
         super.register();
-        ((RecordingEventSender) mc.worldRenderer).setRecordingEventHandler(this);
+        ((RecordingEventSender) mc.levelRenderer).setRecordingEventHandler(this);
     }
 
     @Override
     public void unregister() {
         super.unregister();
-        RecordingEventSender recordingEventSender = ((RecordingEventSender) mc.worldRenderer);
+        RecordingEventSender recordingEventSender = ((RecordingEventSender) mc.levelRenderer);
         if (recordingEventSender.getRecordingEventHandler() == this) {
             recordingEventSender.setRecordingEventHandler(null);
         }
@@ -101,11 +83,11 @@ public class RecordingEventHandler extends EventRegistrations {
 
     public void spawnRecordingPlayer() {
         try {
-            ClientPlayerEntity player = mc.player;
+            LocalPlayer player = mc.player;
             assert player != null;
-            packetListener.save(new PlayerSpawnS2CPacket(player));
+            packetListener.save(new ClientboundAddPlayerPacket(player));
             //#if MC>=11500
-            packetListener.save(new EntityTrackerUpdateS2CPacket(player.getId(), player.getDataTracker(), true));
+            packetListener.save(new ClientboundSetEntityDataPacket(player.getId(), player.getEntityData(), true));
             //#endif
             lastX = lastY = lastZ = null;
         } catch(Exception e) {
@@ -117,7 +99,7 @@ public class RecordingEventHandler extends EventRegistrations {
     public void onClientEffect(int type, BlockPos pos, int data) {
         try {
             // Send to all other players in ServerWorldEventHandler#playEvent
-            packetListener.save(new WorldEventS2CPacket(type, pos, data, false));
+            packetListener.save(new ClientboundLevelEventPacket(type, pos, data, false));
         } catch(Exception e) {
             e.printStackTrace();
         }
@@ -127,7 +109,7 @@ public class RecordingEventHandler extends EventRegistrations {
     { on(PreTickCallback.EVENT, this::onPlayerTick); }
     private void onPlayerTick() {
         if (mc.player == null) return;
-        ClientPlayerEntity player = mc.player;
+        LocalPlayer player = mc.player;
         try {
 
             boolean force = false;
@@ -161,7 +143,7 @@ public class RecordingEventHandler extends EventRegistrations {
             Packet packet;
             if (force || Math.abs(dx) > maxRelDist || Math.abs(dy) > maxRelDist || Math.abs(dz) > maxRelDist) {
                 //#if MC>=10800
-                packet = new EntityPositionS2CPacket(player);
+                packet = new ClientboundTeleportEntityPacket(player);
                 //#else
                 //$$ // In 1.7.10 the client player entity has its posY at eye height
                 //$$ // but for all other entities it's at their feet (as it should be).
@@ -179,11 +161,11 @@ public class RecordingEventHandler extends EventRegistrations {
                 //$$ );
                 //#endif
             } else {
-                byte newYaw = (byte) ((int) (player.getYaw() * 256.0F / 360.0F));
-                byte newPitch = (byte) ((int) (player.getPitch() * 256.0F / 360.0F));
+                byte newYaw = (byte) ((int) (player.getYRot() * 256.0F / 360.0F));
+                byte newPitch = (byte) ((int) (player.getXRot() * 256.0F / 360.0F));
 
                 //#if MC>=11400
-                packet = new EntityS2CPacket.RotateAndMoveRelative(
+                packet = new ClientboundMoveEntityPacket.PosRot(
                 //#else
                 //$$ packet = new SPacketEntity.S17PacketEntityLookMove(
                 //#endif
@@ -207,16 +189,16 @@ public class RecordingEventHandler extends EventRegistrations {
             packetListener.save(packet);
 
             //HEAD POS
-            int rotationYawHead = ((int)(player.headYaw * 256.0F / 360.0F));
+            int rotationYawHead = ((int)(player.yHeadRot * 256.0F / 360.0F));
 
             if(!Objects.equals(rotationYawHead, rotationYawHeadBefore)) {
-                packetListener.save(new EntitySetHeadYawS2CPacket(player, (byte) rotationYawHead));
+                packetListener.save(new ClientboundRotateHeadPacket(player, (byte) rotationYawHead));
                 rotationYawHeadBefore = rotationYawHead;
             }
 
-            packetListener.save(new EntityVelocityUpdateS2CPacket(player.getId(),
+            packetListener.save(new ClientboundSetEntityMotionPacket(player.getId(),
                     //#if MC>=11400
-                    player.getVelocity()
+                    player.getDeltaMovement()
                     //#else
                     //$$ player.motionX, player.motionY, player.motionZ
                     //#endif
@@ -224,11 +206,11 @@ public class RecordingEventHandler extends EventRegistrations {
 
             //Animation Packets
             //Swing Animation
-            if (player.handSwinging && player.handSwingTicks == 0) {
-                packetListener.save(new EntityAnimationS2CPacket(
+            if (player.swinging && player.swingTime == 0) {
+                packetListener.save(new ClientboundAnimatePacket(
                         player,
                         //#if MC>=10904
-                        player.preferredHand == Hand.MAIN_HAND ? 0 : 3
+                        player.swingingArm == InteractionHand.MAIN_HAND ? 0 : 3
                         //#else
                         //$$ 0
                         //#endif
@@ -258,20 +240,20 @@ public class RecordingEventHandler extends EventRegistrations {
             //Inventory Handling
             //#if MC>=10904
             for (EquipmentSlot slot : EquipmentSlot.values()) {
-                ItemStack stack = player.getEquippedStack(slot);
+                ItemStack stack = player.getItemBySlot(slot);
                 int index = slot.ordinal();
             //#else
             //$$ for (int slot = 0; slot < 5; slot++) {
             //$$     ItemStack stack = player.getEquipmentInSlot(slot);
             //$$     int index = slot;
             //#endif
-                if (!ItemStack.areEqual(playerItems.get(index), stack)) {
+                if (!ItemStack.matches(playerItems.get(index), stack)) {
                     // ItemStack has internal mutability, so we need to make a copy now if we want to compare its
                     // current state with future states (e.g. dropping on modern versions will set the count to zero).
                     stack = stack != null ? stack.copy() : null;
                     playerItems.set(index, stack);
                     //#if MC>=11600
-                    packetListener.save(new EntityEquipmentUpdateS2CPacket(player.getId(), Collections.singletonList(Pair.of(slot, stack))));
+                    packetListener.save(new ClientboundSetEquipmentPacket(player.getId(), Collections.singletonList(Pair.of(slot, stack))));
                     //#else
                     //$$ packetListener.save(new EntityEquipmentUpdateS2CPacket(player.getEntityId(), slot, stack));
                     //#endif
@@ -284,7 +266,7 @@ public class RecordingEventHandler extends EventRegistrations {
             int vehicleId = vehicle == null ? -1 : vehicle.getId();
             if (lastRiding != vehicleId) {
                 lastRiding = vehicleId;
-                packetListener.save(new EntityAttachS2CPacket(
+                packetListener.save(new ClientboundSetEntityLinkPacket(
                         //#if MC<10904
                         //$$ 0,
                         //#endif
@@ -295,7 +277,7 @@ public class RecordingEventHandler extends EventRegistrations {
 
             //Sleeping
             if(!player.isSleeping() && wasSleeping) {
-                packetListener.save(new EntityAnimationS2CPacket(player, 2));
+                packetListener.save(new ClientboundAnimatePacket(player, 2));
                 wasSleeping = false;
             }
 
@@ -309,9 +291,9 @@ public class RecordingEventHandler extends EventRegistrations {
     //#else
     //$$ public void onBlockBreakAnim(int breakerId, int x, int y, int z, int progress) {
     //#endif
-        PlayerEntity thePlayer = mc.player;
+        Player thePlayer = mc.player;
         if (thePlayer != null && breakerId == thePlayer.getId()) {
-            packetListener.save(new BlockBreakingProgressS2CPacket(breakerId,
+            packetListener.save(new ClientboundBlockDestructionPacket(breakerId,
                     //#if MC>=10800
                     pos,
                     //#else
@@ -323,8 +305,8 @@ public class RecordingEventHandler extends EventRegistrations {
 
     { on(PreRenderCallback.EVENT, this::checkForGamePaused); }
     private void checkForGamePaused() {
-        if (mc.isIntegratedServerRunning()) {
-            IntegratedServer server =  mc.getServer();
+        if (mc.hasSingleplayerServer()) {
+            IntegratedServer server =  mc.getSingleplayerServer();
             if (server != null && ((IntegratedServerAccessor) server).isGamePaused()) {
                 packetListener.setServerWasPaused();
             }

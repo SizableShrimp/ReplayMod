@@ -1,6 +1,11 @@
 package com.replaymod.core.versions;
 
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormatElement;
 import com.replaymod.core.mixin.GuiScreenAccessor;
 import com.replaymod.replaystudio.lib.viaversion.api.protocol.packet.State;
 import com.replaymod.replaystudio.lib.viaversion.api.protocol.version.ProtocolVersion;
@@ -8,47 +13,11 @@ import com.replaymod.replaystudio.protocol.PacketTypeRegistry;
 import de.johni0702.minecraft.gui.MinecraftGuiRenderer;
 import de.johni0702.minecraft.gui.utils.lwjgl.vector.Vector2f;
 import de.johni0702.minecraft.gui.utils.lwjgl.vector.Vector3f;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.Vec3d;
-
-//#if MC>=11604
-//#else
-//$$ import net.minecraft.entity.Entity;
-//#endif
-
-//#if MC>=11600
-import net.minecraft.resource.ResourcePackSource;
-//#endif
-
 //#if MC>=11400
 import com.replaymod.render.mixin.MainWindowAccessor;
 import net.minecraft.SharedConstants;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.util.Window;
-
+import net.minecraft.Util;
 import java.util.concurrent.CompletableFuture;
-
-//#if MC>=11600
-import net.minecraft.text.Text;
-import net.minecraft.text.TranslatableTextContent;
-//#else
-//$$ import net.minecraft.client.resource.language.I18n;
-//#endif
-//#else
-//$$ import com.google.common.util.concurrent.FutureCallback;
-//$$ import com.google.common.util.concurrent.Futures;
-//$$ import com.google.common.util.concurrent.ListenableFuture;
-//$$ import net.minecraft.client.gui.GuiButton;
-//$$ import net.minecraft.realms.RealmsSharedConstants;
-//#endif
-
-//#if MC>=11400
-import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 //#else
 //$$ import net.minecraft.client.resources.ResourcePackRepository;
@@ -61,25 +30,16 @@ import org.lwjgl.glfw.GLFW;
 
 //#if MC>=10904
 import com.replaymod.render.blend.mixin.ParticleAccessor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.particle.Particle;
 //#endif
-
-//#if MC>=10800
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormatElement;
-//#if MC<11500
-//$$ import net.minecraft.client.render.chunk.ChunkRenderTask;
-//#endif
-//#else
-//$$ import com.replaymod.core.mixin.ResourcePackRepositoryAccessor;
-//$$ import io.netty.handler.codec.DecoderException;
-//$$ import net.minecraft.client.renderer.entity.RenderManager;
-//$$ import net.minecraft.client.resources.FileResourcePack;
-//$$ import net.minecraft.network.PacketBuffer;
-//$$
-//$$ import static org.lwjgl.opengl.GL11.*;
-//#endif
-
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.repository.PackSource;
+import net.minecraft.world.phys.Vec3;
 import java.io.File;
 import java.net.URI;
 import java.util.List;
@@ -92,7 +52,7 @@ import java.util.Optional;
 public class MCVer {
     public static int getProtocolVersion() {
         //#if MC>=11400
-        return SharedConstants.getGameVersion().getProtocolVersion();
+        return SharedConstants.getCurrentVersion().getProtocolVersion();
         //#else
         //$$ return RealmsSharedConstants.NETWORK_PROTOCOL_VERSION;
         //#endif
@@ -105,12 +65,12 @@ public class MCVer {
         );
     }
 
-    public static void resizeMainWindow(MinecraftClient mc, int width, int height) {
+    public static void resizeMainWindow(Minecraft mc, int width, int height) {
         //#if MC>=11400
         Window window = mc.getWindow();
         MainWindowAccessor mainWindow = (MainWindowAccessor) (Object) window;
         //noinspection ConstantConditions
-        mainWindow.invokeOnFramebufferSizeChanged(window.getHandle(), width, height);
+        mainWindow.invokeOnFramebufferSizeChanged(window.getWindow(), width, height);
         //#else
         //$$ if (width != mc.displayWidth || height != mc.displayHeight) {
         //$$     mc.resize(width, height);
@@ -136,10 +96,10 @@ public class MCVer {
     //#endif
     setServerResourcePack(File file) {
         //#if MC>=11400
-        return getMinecraft().getResourcePackProvider().loadServerPack(
+        return getMinecraft().getClientPackSource().setServerPack(
                 file
                 //#if MC>=11600
-                , ResourcePackSource.PACK_SOURCE_SERVER
+                , PackSource.SERVER
                 //#endif
         );
         //#else
@@ -198,14 +158,14 @@ public class MCVer {
     //$$ }
     //#endif
 
-    public static MinecraftClient getMinecraft() {
-        return MinecraftClient.getInstance();
+    public static Minecraft getMinecraft() {
+        return Minecraft.getInstance();
     }
 
     public static void addButton(
             Screen screen,
             //#if MC>=11400
-            ButtonWidget button
+            Button button
             //#else
             //$$ GuiButton button
             //#endif
@@ -219,19 +179,19 @@ public class MCVer {
     }
 
     //#if MC>=11400
-    public static Optional<ClickableWidget> findButton(Iterable<ClickableWidget> buttonList, @SuppressWarnings("unused") String text, @SuppressWarnings("unused") int id) {
+    public static Optional<AbstractWidget> findButton(Iterable<AbstractWidget> buttonList, @SuppressWarnings("unused") String text, @SuppressWarnings("unused") int id) {
         //#if MC>=11600
-        final Text message = net.minecraft.text.Text.translatable(text);
+        final Component message = Component.translatable(text);
         //#else
         //$$ final String message = I18n.translate(text);
         //#endif
-        for (ClickableWidget b : buttonList) {
+        for (AbstractWidget b : buttonList) {
             if (message.equals(b.getMessage())) {
                 return Optional.of(b);
             }
             //#if MC>=11600
             // Fuzzy match (copy does not include children)
-            if (b.getMessage() != null && b.getMessage().copyContentOnly().equals(message)) {
+            if (b.getMessage() != null && b.getMessage().plainCopy().equals(message)) {
                 return Optional.of(b);
             }
             //#endif
@@ -279,7 +239,7 @@ public class MCVer {
 
     public static long milliTime() {
         //#if MC>=11400
-        return Util.getMeasuringTimeMs();
+        return Util.getMillis();
         //#else
         //$$ return Minecraft.getSystemTime();
         //#endif
@@ -287,12 +247,12 @@ public class MCVer {
 
     //#if MC>=10904
     // TODO: this can be inlined once https://github.com/SpongePowered/Mixin/issues/305 is fixed
-    public static Vec3d getPosition(Particle particle, float partialTicks) {
+    public static Vec3 getPosition(Particle particle, float partialTicks) {
         ParticleAccessor acc = (ParticleAccessor) particle;
         double x = acc.getPrevPosX() + (acc.getPosX() - acc.getPrevPosX()) * partialTicks;
         double y = acc.getPrevPosY() + (acc.getPosY() - acc.getPrevPosY()) * partialTicks;
         double z = acc.getPrevPosZ() + (acc.getPosZ() - acc.getPrevPosZ()) * partialTicks;
-        return new Vec3d(x, y, z);
+        return new Vec3(x, y, z);
     }
     //#endif
 
@@ -304,7 +264,7 @@ public class MCVer {
 
     public static void openFile(File file) {
         //#if MC>=11400
-        Util.getOperatingSystem().open(file);
+        Util.getPlatform().openFile(file);
         //#else
         //$$ String path = file.getAbsolutePath();
         //$$
@@ -334,7 +294,7 @@ public class MCVer {
 
     public static void openURL(URI url) {
         //#if MC>=11400
-        Util.getOperatingSystem().open(url);
+        Util.getPlatform().openUri(url);
         //#else
         //$$ try {
         //$$     Desktop.getDesktop().browse(url);
@@ -346,7 +306,7 @@ public class MCVer {
 
     public static void pushMatrix() {
         //#if MC>=11700
-        RenderSystem.getModelViewStack().push();
+        RenderSystem.getModelViewStack().pushPose();
         //#else
         //$$ GlStateManager.pushMatrix();
         //#endif
@@ -354,7 +314,7 @@ public class MCVer {
 
     public static void popMatrix() {
         //#if MC>=11700
-        RenderSystem.getModelViewStack().pop();
+        RenderSystem.getModelViewStack().popPose();
         RenderSystem.applyModelViewMatrix();
         //#else
         //$$ GlStateManager.popMatrix();
@@ -378,16 +338,16 @@ public class MCVer {
                 //#if MC>=11700
                 .normal(n.x, n.y, n.z)
                 //#endif
-                .next();
+                .endVertex();
         buffer.vertex(p2.x, p2.y, p2.z)
                 .color(r, g, b, a)
                 //#if MC>=11700
                 .normal(n.x, n.y, n.z)
                 //#endif
-                .next();
+                .endVertex();
     }
 
-    public static void bindTexture(Identifier id) {
+    public static void bindTexture(ResourceLocation id) {
         new MinecraftGuiRenderer(null).bindTexture(id);
     }
 
@@ -522,7 +482,7 @@ public class MCVer {
 
         public static boolean isKeyDown(int keyCode) {
             //#if MC>=11500
-            return InputUtil.isKeyPressed(getMinecraft().getWindow().getHandle(), keyCode);
+            return InputConstants.isKeyDown(getMinecraft().getWindow().getWindow(), keyCode);
             //#else
             //#if MC>=11400
             //$$ return InputUtil.isKeyPressed(getMinecraft().window.getHandle(), keyCode);

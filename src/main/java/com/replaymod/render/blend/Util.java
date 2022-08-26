@@ -1,13 +1,10 @@
 package com.replaymod.render.blend;
 
+import com.mojang.blaze3d.platform.MemoryTracker;
 import de.johni0702.minecraft.gui.utils.lwjgl.vector.Matrix3f;
 import de.johni0702.minecraft.gui.utils.lwjgl.vector.Matrix4f;
 import de.johni0702.minecraft.gui.utils.lwjgl.vector.Quaternion;
 import de.johni0702.minecraft.gui.utils.lwjgl.vector.Vector3f;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.GlAllocationUtils;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.block.entity.BlockEntity;
 import org.blender.dna.Link;
 import org.blender.dna.ListBase;
 import org.blender.utils.BlenderFactory;
@@ -16,10 +13,10 @@ import org.lwjgl.opengl.GL11;
 
 import java.io.IOException;
 import java.nio.FloatBuffer;
-
-//#if MC>=11400
-import net.minecraft.util.math.Vec3d;
-//#endif
+import net.minecraft.client.Minecraft;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.phys.Vec3;
 
 public class Util {
     public static BlenderFactory factory() {
@@ -39,7 +36,7 @@ public class Util {
         }
     }
 
-    private static FloatBuffer floatBuffer = GlAllocationUtils.allocateByteBuffer(16 * 4).asFloatBuffer();
+    private static FloatBuffer floatBuffer = MemoryTracker.create(16 * 4).asFloatBuffer();
     public static Matrix4f getGlMatrix(int matrix) {
         floatBuffer.clear();
         //#if MC>=11400
@@ -138,9 +135,9 @@ public class Util {
 
     //#if MC>=10800
     public static Vector3f getCameraPos() {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         //#if MC>=11400
-        Vec3d pos = mc.getEntityRenderDispatcher().camera.getPos();
+        Vec3 pos = mc.getEntityRenderDispatcher().camera.getPosition();
         return new Vector3f((float) pos.x, (float) pos.y, (float) pos.z);
         //#else
         //$$ return new Vector3f(
@@ -184,7 +181,7 @@ public class Util {
 
     public static String getTileEntityId(BlockEntity tileEntity) {
         //#if MC>=11800
-        NbtCompound nbt = tileEntity.createNbt();
+        CompoundTag nbt = tileEntity.saveWithoutMetadata();
         //#else
         //$$ NbtCompound nbt = new NbtCompound();
         //#if MC>=11400

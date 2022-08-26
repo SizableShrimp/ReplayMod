@@ -1,8 +1,8 @@
 package com.replaymod.render.mixin;
 
+import com.mojang.math.Matrix4f;
 import com.replaymod.render.hooks.EntityRendererHandler;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.util.math.Matrix4f;
+import net.minecraft.client.renderer.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -19,6 +19,6 @@ public abstract class Mixin_Omnidirectional_Camera implements EntityRendererHand
             fovY = 90;
             aspect = 1;
         }
-        return Matrix4f.viewboxMatrix(fovY, aspect, zNear, zFar);
+        return Matrix4f.perspective(fovY, aspect, zNear, zFar);
     }
 }

@@ -1,8 +1,8 @@
 //#if MC>=10904
 package com.replaymod.render.blend.mixin;
 
-import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.color.item.ItemColors;
+import net.minecraft.client.renderer.entity.ItemRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 

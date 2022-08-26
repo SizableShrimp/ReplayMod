@@ -26,6 +26,7 @@ package de.johni0702.minecraft.gui;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 import de.johni0702.minecraft.gui.utils.NonNull;
 import de.johni0702.minecraft.gui.utils.lwjgl.Color;
 import de.johni0702.minecraft.gui.utils.lwjgl.Point;
@@ -34,12 +35,11 @@ import de.johni0702.minecraft.gui.utils.lwjgl.ReadableDimension;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadablePoint;
 import de.johni0702.minecraft.gui.utils.lwjgl.WritableDimension;
 import de.johni0702.minecraft.gui.versions.MCVer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawableHelper;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiComponent;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.resources.ResourceLocation;
 
 import static com.mojang.blaze3d.systems.RenderSystem.*;
 import static de.johni0702.minecraft.gui.versions.MCVer.getMinecraft;
@@ -49,23 +49,23 @@ import static org.lwjgl.opengl.GL11.GL_SRC_ALPHA;
 
 public class MinecraftGuiRenderer implements GuiRenderer {
 
-    private final DrawableHelper gui = new DrawableHelper(){};
-    private final MinecraftClient mc = getMinecraft();
+    private final GuiComponent gui = new GuiComponent(){};
+    private final Minecraft mc = getMinecraft();
 
-    private final MatrixStack matrixStack;
+    private final PoseStack matrixStack;
 
     @NonNull
     //#if MC>=11400
-    private final int scaledWidth = newScaledResolution(mc).getScaledWidth();
-    private final int scaledHeight = newScaledResolution(mc).getScaledHeight();
-    private final double scaleFactor = newScaledResolution(mc).getScaleFactor();
+    private final int scaledWidth = newScaledResolution(mc).getGuiScaledWidth();
+    private final int scaledHeight = newScaledResolution(mc).getGuiScaledHeight();
+    private final double scaleFactor = newScaledResolution(mc).getGuiScale();
     //#else
     //$$ private final int scaledWidth = newScaledResolution(mc).getScaledWidth();
     //$$ private final int scaledHeight = newScaledResolution(mc).getScaledHeight();
     //$$ private final double scaleFactor = newScaledResolution(mc).getScaleFactor();
     //#endif
 
-    public MinecraftGuiRenderer(MatrixStack matrixStack) {
+    public MinecraftGuiRenderer(PoseStack matrixStack) {
         this.matrixStack = matrixStack;
     }
 
@@ -75,7 +75,7 @@ public class MinecraftGuiRenderer implements GuiRenderer {
     }
 
     @Override
-    public MatrixStack getMatrixStack() {
+    public PoseStack getMatrixStack() {
         return matrixStack;
     }
 
@@ -109,7 +109,7 @@ public class MinecraftGuiRenderer implements GuiRenderer {
     }
 
     @Override
-    public void bindTexture(Identifier location) {
+    public void bindTexture(ResourceLocation location) {
         //#if MC>=11700
         RenderSystem.setShaderTexture(0, location);
         //#elseif MC>=11500
@@ -133,7 +133,7 @@ public class MinecraftGuiRenderer implements GuiRenderer {
     @Override
     public void drawTexturedRect(int x, int y, int u, int v, int width, int height) {
         //#if MC>=11600
-        gui.drawTexture(matrixStack, x, y, u, v, width, height);
+        gui.blit(matrixStack, x, y, u, v, width, height);
         //#else
         //#if MC>=11400
         //$$ gui.blit(x, y, u, v, width, height);
@@ -147,7 +147,7 @@ public class MinecraftGuiRenderer implements GuiRenderer {
     public void drawTexturedRect(int x, int y, int u, int v, int width, int height, int uWidth, int vHeight, int textureWidth, int textureHeight) {
         color(1, 1, 1);
         //#if MC>=11600
-        DrawableHelper.drawTexture(matrixStack, x, y, width, height, u, v, uWidth, vHeight, textureWidth, textureHeight);
+        GuiComponent.blit(matrixStack, x, y, width, height, u, v, uWidth, vHeight, textureWidth, textureHeight);
         //#else
         //#if MC>=11400
         //$$ DrawableHelper.blit(x, y, width, height, u, v, uWidth, vHeight, textureWidth, textureHeight);
@@ -159,7 +159,7 @@ public class MinecraftGuiRenderer implements GuiRenderer {
 
     @Override
     public void drawRect(int x, int y, int width, int height, int color) {
-        DrawableHelper.fill(
+        GuiComponent.fill(
                 //#if MC>=11600
                 matrixStack,
                 //#endif
@@ -220,10 +220,10 @@ public class MinecraftGuiRenderer implements GuiRenderer {
 
     @Override
     public int drawString(int x, int y, int color, String text, boolean shadow) {
-        TextRenderer fontRenderer = MCVer.getFontRenderer();
+        Font fontRenderer = MCVer.getFontRenderer();
         try {
             if (shadow) {
-                return fontRenderer.drawWithShadow(
+                return fontRenderer.drawShadow(
                         //#if MC>=11600
                         matrixStack,
                         //#endif
@@ -247,8 +247,8 @@ public class MinecraftGuiRenderer implements GuiRenderer {
 
     @Override
     public int drawCenteredString(int x, int y, int color, String text, boolean shadow) {
-        TextRenderer fontRenderer = MCVer.getFontRenderer();
-        x-=fontRenderer.getWidth(text) / 2;
+        Font fontRenderer = MCVer.getFontRenderer();
+        x-=fontRenderer.width(text) / 2;
         return drawString(x, y, color, text, shadow);
     }
 

@@ -1,7 +1,7 @@
 package com.replaymod.replay.mixin.entity_tracking;
 
 import com.replaymod.replay.ext.EntityExt;
-import net.minecraft.entity.Entity;
+import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;

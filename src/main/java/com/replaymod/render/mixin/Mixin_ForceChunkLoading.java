@@ -1,19 +1,11 @@
 package com.replaymod.render.mixin;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Matrix4f;
 import com.replaymod.render.hooks.ForceChunkLoadingHook;
 import com.replaymod.render.hooks.IForceChunkLoading;
 import com.replaymod.render.utils.FlawlessFrames;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.Frustum;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.render.chunk.ChunkBuilder;
-import net.minecraft.client.render.chunk.ChunkRendererRegionBuilder;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Matrix4f;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -27,8 +19,16 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.chunk.ChunkRenderDispatcher;
+import net.minecraft.client.renderer.chunk.RenderRegionCache;
+import net.minecraft.client.renderer.culling.Frustum;
 
-@Mixin(WorldRenderer.class)
+@Mixin(LevelRenderer.class)
 public abstract class Mixin_ForceChunkLoading implements IForceChunkLoading {
     private ForceChunkLoadingHook replayModRender_hook;
 
@@ -37,7 +37,7 @@ public abstract class Mixin_ForceChunkLoading implements IForceChunkLoading {
         this.replayModRender_hook = hook;
     }
 
-    @Shadow private ChunkBuilder chunkBuilder;
+    @Shadow private ChunkRenderDispatcher chunkBuilder;
 
     @Shadow protected abstract void setupTerrain(Camera par1, Frustum par2, boolean par3, boolean par4);
 
@@ -45,13 +45,13 @@ public abstract class Mixin_ForceChunkLoading implements IForceChunkLoading {
 
     @Shadow private Frustum capturedFrustum;
 
-    @Shadow @Final private MinecraftClient client;
+    @Shadow @Final private Minecraft client;
 
     @Shadow @Final private ObjectArrayList<ChunkInfoAccessor> chunkInfos;
 
     @Shadow private boolean shouldUpdate;
 
-    @Shadow @Final private BlockingQueue<ChunkBuilder.BuiltChunk> builtChunks;
+    @Shadow @Final private BlockingQueue<ChunkRenderDispatcher.RenderChunk> builtChunks;
 
     @Shadow private Future<?> fullUpdateFuture;
 
@@ -60,7 +60,7 @@ public abstract class Mixin_ForceChunkLoading implements IForceChunkLoading {
     @Shadow protected abstract void applyFrustum(Frustum par1);
 
     @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/WorldRenderer;setupTerrain(Lnet/minecraft/client/render/Camera;Lnet/minecraft/client/render/Frustum;ZZ)V"))
-    private void forceAllChunks(MatrixStack matrices, float tickDelta, long limitTime, boolean renderBlockOutline, Camera camera, GameRenderer gameRenderer, LightmapTextureManager lightmapTextureManager, Matrix4f matrix4f, CallbackInfo ci) {
+    private void forceAllChunks(PoseStack matrices, float tickDelta, long limitTime, boolean renderBlockOutline, Camera camera, GameRenderer gameRenderer, LightTexture lightmapTextureManager, Matrix4f matrix4f, CallbackInfo ci) {
         if (replayModRender_hook == null) {
             return;
         }
@@ -70,7 +70,7 @@ public abstract class Mixin_ForceChunkLoading implements IForceChunkLoading {
 
         assert this.client.player != null;
 
-        ChunkRendererRegionBuilder chunkRendererRegionBuilder = new ChunkRendererRegionBuilder();
+        RenderRegionCache chunkRendererRegionBuilder = new RenderRegionCache();
 
         do {
             // Determine which chunks shall be visible
@@ -93,21 +93,21 @@ public abstract class Mixin_ForceChunkLoading implements IForceChunkLoading {
             // If that async processing did change the chunk graph, we need to re-apply the frustum (otherwise this is
             // only done in the next setupTerrain call, which not happen this frame)
             if (this.updateFinished.compareAndSet(true, false)) {
-                this.applyFrustum((new Frustum(frustum)).method_38557(8)); // call based on the one in setupTerrain
+                this.applyFrustum((new Frustum(frustum)).offsetToFullyIncludeCameraCube(8)); // call based on the one in setupTerrain
             }
 
             // Schedule all chunks which need rebuilding (we schedule even important rebuilds because we wait for
             // all of them anyway and this way we can take advantage of threading)
             for (ChunkInfoAccessor chunkInfo : this.chunkInfos) {
-                ChunkBuilder.BuiltChunk builtChunk = chunkInfo.getChunk();
-                if (!builtChunk.needsRebuild()) {
+                ChunkRenderDispatcher.RenderChunk builtChunk = chunkInfo.getChunk();
+                if (!builtChunk.isDirty()) {
                     continue;
                 }
                 // MC sometimes schedules invalid chunks when you're outside of loaded chunks (e.g. y > 256)
-                if (builtChunk.shouldBuild()) {
-                    builtChunk.scheduleRebuild(this.chunkBuilder, chunkRendererRegionBuilder);
+                if (builtChunk.hasAllNeighbors()) {
+                    builtChunk.rebuildChunkAsync(this.chunkBuilder, chunkRendererRegionBuilder);
                 }
-                builtChunk.cancelRebuild();
+                builtChunk.setNotDirty();
             }
 
             // Upload all chunks

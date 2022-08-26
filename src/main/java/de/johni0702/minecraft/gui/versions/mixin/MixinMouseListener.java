@@ -2,8 +2,8 @@
 package de.johni0702.minecraft.gui.versions.mixin;
 
 import de.johni0702.minecraft.gui.versions.callbacks.MouseCallback;
-import net.minecraft.client.Mouse;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.MouseHandler;
+import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //$$ import net.minecraft.client.gui.Element;
 //#endif
 
-@Mixin(Mouse.class)
+@Mixin(MouseHandler.class)
 public abstract class MixinMouseListener {
     @Accessor // Note: for some reason Mixin doesn't include this in the refmap json if it's just a @Shadow field
     abstract int getActiveButton();

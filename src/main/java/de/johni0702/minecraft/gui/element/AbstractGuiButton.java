@@ -33,21 +33,21 @@ import de.johni0702.minecraft.gui.utils.lwjgl.Point;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadableDimension;
 import de.johni0702.minecraft.gui.utils.lwjgl.ReadablePoint;
 import de.johni0702.minecraft.gui.versions.MCVer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.resource.language.I18n;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 
 import static com.mojang.blaze3d.systems.RenderSystem.*;
 import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11.GL_SRC_ALPHA;
 
 public abstract class AbstractGuiButton<T extends AbstractGuiButton<T>> extends AbstractGuiClickable<T> implements Clickable, IGuiButton<T> {
-    protected static final Identifier BUTTON_SOUND = new Identifier("gui.button.press");
-    protected static final Identifier WIDGETS_TEXTURE = new Identifier("textures/gui/widgets.png");
+    protected static final ResourceLocation BUTTON_SOUND = new ResourceLocation("gui.button.press");
+    protected static final ResourceLocation WIDGETS_TEXTURE = new ResourceLocation("textures/gui/widgets.png");
 
     //#if MC>=10904
     private SoundEvent sound = SoundEvents.UI_BUTTON_CLICK;
@@ -56,7 +56,7 @@ public abstract class AbstractGuiButton<T extends AbstractGuiButton<T>> extends 
     private int labelColor = 0xe0e0e0;
     private String label;
 
-    private Identifier texture;
+    private ResourceLocation texture;
     private ReadableDimension textureSize;
     private ReadablePoint spriteUV;
     private ReadableDimension spriteSize;
@@ -122,8 +122,8 @@ public abstract class AbstractGuiButton<T extends AbstractGuiButton<T>> extends 
     @Override
     public ReadableDimension calcMinSize() {
         if (label != null) {
-            TextRenderer fontRenderer = MCVer.getFontRenderer();
-            return new Dimension(fontRenderer.getWidth(label), 20);
+            Font fontRenderer = MCVer.getFontRenderer();
+            return new Dimension(fontRenderer.width(label), 20);
         } else {
             return new Dimension(0, 0);
         }
@@ -135,14 +135,14 @@ public abstract class AbstractGuiButton<T extends AbstractGuiButton<T>> extends 
         super.onClick();
     }
 
-    public static void playClickSound(MinecraftClient mc) {
+    public static void playClickSound(Minecraft mc) {
     //#if MC>=10904
         playClickSound(mc, SoundEvents.UI_BUTTON_CLICK);
     }
-    public static void playClickSound(MinecraftClient mc, SoundEvent sound) {
+    public static void playClickSound(Minecraft mc, SoundEvent sound) {
     //#endif
         //#if MC>=11400
-        mc.getSoundManager().play(PositionedSoundInstance.master(sound, 1.0F));
+        mc.getSoundManager().play(SimpleSoundInstance.forUI(sound, 1.0F));
         //#else
         //#if MC>=10904
         //$$ mc.getSoundHandler().playSound(PositionedSoundRecord.getMasterRecord(sound, 1.0F));
@@ -176,7 +176,7 @@ public abstract class AbstractGuiButton<T extends AbstractGuiButton<T>> extends 
 
     @Override
     public T setI18nLabel(String label, Object... args) {
-        return setLabel(I18n.translate(label, args));
+        return setLabel(I18n.get(label, args));
     }
 
     public String getLabel() {
@@ -188,12 +188,12 @@ public abstract class AbstractGuiButton<T extends AbstractGuiButton<T>> extends 
     }
 
     @Override
-    public Identifier getTexture() {
+    public ResourceLocation getTexture() {
         return texture;
     }
 
     @Override
-    public T setTexture(Identifier texture) {
+    public T setTexture(ResourceLocation texture) {
         this.texture = texture;
         return getThis();
     }

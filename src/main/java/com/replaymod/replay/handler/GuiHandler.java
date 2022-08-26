@@ -10,28 +10,6 @@ import de.johni0702.minecraft.gui.utils.lwjgl.Point;
 import de.johni0702.minecraft.gui.versions.callbacks.InitScreenCallback;
 import com.replaymod.replay.ReplayModReplay;
 import com.replaymod.replay.gui.screen.GuiReplayViewer;
-import net.minecraft.client.gui.screen.GameMenuScreen;
-import net.minecraft.client.gui.screen.TitleScreen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ClickableWidget;
-
-//#if MC>=11600
-import net.minecraft.text.Text;
-import net.minecraft.text.TranslatableTextContent;
-//#else
-//$$ import net.minecraft.client.resource.language.I18n;
-//#endif
-
-//#if FABRIC<1
-//$$ import net.minecraftforge.client.event.GuiScreenEvent;
-//$$ import net.minecraftforge.eventbus.api.SubscribeEvent;
-//#endif
-
-//#if MC>=11400
-import net.minecraft.client.gui.widget.ButtonWidget;
-//#endif
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,6 +17,13 @@ import java.util.Comparator;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.network.chat.Component;
 
 import static com.replaymod.core.versions.MCVer.*;
 import static com.replaymod.replay.ReplayModReplay.LOGGER;
@@ -54,8 +39,8 @@ public class GuiHandler extends EventRegistrations {
     }
 
     { on(InitScreenCallback.EVENT, this::injectIntoIngameMenu); }
-    private void injectIntoIngameMenu(Screen guiScreen, Collection<ClickableWidget> buttonList) {
-        if (!(guiScreen instanceof GameMenuScreen)) {
+    private void injectIntoIngameMenu(Screen guiScreen, Collection<AbstractWidget> buttonList) {
+        if (!(guiScreen instanceof PauseScreen)) {
             return;
         }
 
@@ -64,11 +49,11 @@ public class GuiHandler extends EventRegistrations {
             mod.getReplayHandler().getReplaySender().setReplaySpeed(0);
 
             //#if MC>=11600
-            final Text BUTTON_OPTIONS = net.minecraft.text.Text.translatable("menu.options");
-            final Text BUTTON_EXIT_SERVER = net.minecraft.text.Text.translatable("menu.disconnect");
-            final Text BUTTON_ADVANCEMENTS = net.minecraft.text.Text.translatable("gui.advancements");
-            final Text BUTTON_STATS = net.minecraft.text.Text.translatable("gui.stats");
-            final Text BUTTON_OPEN_TO_LAN = net.minecraft.text.Text.translatable("menu.shareToLan");
+            final Component BUTTON_OPTIONS = Component.translatable("menu.options");
+            final Component BUTTON_EXIT_SERVER = Component.translatable("menu.disconnect");
+            final Component BUTTON_ADVANCEMENTS = Component.translatable("gui.advancements");
+            final Component BUTTON_STATS = Component.translatable("gui.stats");
+            final Component BUTTON_OPEN_TO_LAN = Component.translatable("menu.shareToLan");
             //#else
             //#if MC>=11400
             //$$ final String BUTTON_OPTIONS = I18n.translate("menu.options");
@@ -92,8 +77,8 @@ public class GuiHandler extends EventRegistrations {
             //$$ GuiButton openToLan = null;
             //#endif
             //#if MC>=11400
-            ClickableWidget achievements = null, stats = null;
-            for(ClickableWidget b : new ArrayList<>(buttonList)) {
+            AbstractWidget achievements = null, stats = null;
+            for(AbstractWidget b : new ArrayList<>(buttonList)) {
             //#else
             //$$ GuiButton achievements = null, stats = null;
             //$$ for(GuiButton b : new ArrayList<>(buttonList)) {
@@ -101,7 +86,7 @@ public class GuiHandler extends EventRegistrations {
                 boolean remove = false;
                 //#if MC>=11400
                 //#if MC>=11600
-                Text id = b.getMessage();
+                Component id = b.getMessage();
                 //#else
                 //$$ String id = b.getMessage();
                 //#endif
@@ -182,7 +167,7 @@ public class GuiHandler extends EventRegistrations {
      */
     private void moveAllButtonsInRect(
             //#if MC>=11400
-            Collection<ClickableWidget> buttons,
+            Collection<AbstractWidget> buttons,
             //#else
             //$$ Collection<GuiButton> buttons,
             //#endif
@@ -200,7 +185,7 @@ public class GuiHandler extends EventRegistrations {
 
     { on(InitScreenCallback.EVENT, (screen, buttons) -> ensureReplayStopped(screen)); }
     private void ensureReplayStopped(Screen guiScreen) {
-        if (!(guiScreen instanceof TitleScreen || guiScreen instanceof MultiplayerScreen)) {
+        if (!(guiScreen instanceof TitleScreen || guiScreen instanceof JoinMultiplayerScreen)) {
             return;
         }
 
@@ -220,7 +205,7 @@ public class GuiHandler extends EventRegistrations {
     }
 
     { on(InitScreenCallback.EVENT, this::injectIntoMainMenu); }
-    private void injectIntoMainMenu(Screen guiScreen, Collection<ClickableWidget> buttonList) {
+    private void injectIntoMainMenu(Screen guiScreen, Collection<AbstractWidget> buttonList) {
         if (!(guiScreen instanceof TitleScreen)) {
             return;
         }
@@ -291,7 +276,7 @@ public class GuiHandler extends EventRegistrations {
         addButton(guiScreen, button);
     }
 
-    private Point determineButtonPos(MainMenuButtonPosition buttonPosition, Screen guiScreen, Collection<ClickableWidget> buttonList) {
+    private Point determineButtonPos(MainMenuButtonPosition buttonPosition, Screen guiScreen, Collection<AbstractWidget> buttonList) {
         Point topRight = new Point(guiScreen.width - 20 - 5, 5);
 
         if (buttonPosition == MainMenuButtonPosition.TOP_LEFT) {
@@ -315,7 +300,7 @@ public class GuiHandler extends EventRegistrations {
                                     && button.y + button.getHeight() >= it.y
                     ))
                     // then take the bottom-most and if there's two, the right-most
-                    .max(Comparator.<ClickableWidget>comparingInt(it -> it.y).thenComparingInt(it -> it.x))
+                    .max(Comparator.<AbstractWidget>comparingInt(it -> it.y).thenComparingInt(it -> it.x))
                     // and place ourselves next to it
                     .map(it -> new Point(it.x + it.getWidth() + 4, it.y))
                     // if all fails, just go with TOP_RIGHT
@@ -372,7 +357,7 @@ public class GuiHandler extends EventRegistrations {
             }
         }
 
-        if (guiScreen instanceof GameMenuScreen && mod.getReplayHandler() != null) {
+        if (guiScreen instanceof PauseScreen && mod.getReplayHandler() != null) {
             if (button.id == BUTTON_EXIT_REPLAY) {
                 button.active = false;
                 try {
@@ -386,7 +371,7 @@ public class GuiHandler extends EventRegistrations {
 
     public static class InjectedButton extends
             //#if MC>=11400
-            ButtonWidget
+            Button
             //#else
             //$$ GuiButton
             //#endif
@@ -410,7 +395,7 @@ public class GuiHandler extends EventRegistrations {
                     width,
                     height,
                     //#if MC>=11600
-                    net.minecraft.text.Text.translatable(buttonText)
+                    Component.translatable(buttonText)
                     //#else
                     //$$ I18n.translate(buttonText)
                     //#endif

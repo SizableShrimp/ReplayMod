@@ -1,27 +1,21 @@
 package com.replaymod.render.shader;
 
 import com.replaymod.core.versions.MCVer;
-import net.minecraft.util.Identifier;
 import org.apache.commons.io.IOUtils;
 import org.lwjgl.opengl.ARBFragmentShader;
 import org.lwjgl.opengl.ARBShaderObjects;
 import org.lwjgl.opengl.ARBVertexShader;
 import org.lwjgl.opengl.GL11;
-
-//#if MC>=11400
-import net.minecraft.resource.Resource;
-//#else
-//$$ import net.minecraft.client.resources.IResource;
-//#endif
-
 import java.io.InputStream;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.Resource;
 
 import static org.lwjgl.opengl.ARBShaderObjects.*;
 
 public class Program {
     private final int program;
 
-    public Program(Identifier vertexShader, Identifier fragmentShader) throws Exception {
+    public Program(ResourceLocation vertexShader, ResourceLocation fragmentShader) throws Exception {
         int vertShader = createShader(vertexShader, ARBVertexShader.GL_VERTEX_SHADER_ARB);
         int fragShader = createShader(fragmentShader, ARBFragmentShader.GL_FRAGMENT_SHADER_ARB);
 
@@ -44,7 +38,7 @@ public class Program {
         }
     }
 
-    private int createShader(Identifier resourceLocation, int shaderType) throws Exception {
+    private int createShader(ResourceLocation resourceLocation, int shaderType) throws Exception {
         int shader = 0;
         try {
             shader = glCreateShaderObjectARB(shaderType);
@@ -53,7 +47,7 @@ public class Program {
                 throw new Exception("glCreateShaderObjectARB failed");
 
             Resource resource = MCVer.getMinecraft().getResourceManager().getResourceOrThrow(resourceLocation);
-            try (InputStream is = resource.getInputStream()) {
+            try (InputStream is = resource.open()) {
                 glShaderSourceARB(shader, IOUtils.toString(is));
             }
             glCompileShaderARB(shader);

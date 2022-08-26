@@ -1,24 +1,18 @@
 package com.replaymod.replay.mixin;
 
+import net.minecraft.client.multiplayer.ClientLevel;
 //#if MC>=10904
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleManager;
+import net.minecraft.client.particle.ParticleEngine;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-//#if MC>=11600
-import net.minecraft.client.world.ClientWorld;
-//#else
-//$$ import net.minecraft.world.World;
-//#endif
-
 import java.util.Queue;
 
-@Mixin(ParticleManager.class)
+@Mixin(ParticleEngine.class)
 public abstract class MixinParticleManager {
     @Final @Shadow
     private Queue<Particle> newParticles;
@@ -34,7 +28,7 @@ public abstract class MixinParticleManager {
     @Inject(method = "setWorld", at = @At("HEAD"))
     public void replayModReplay_clearParticleQueue(
             //#if MC>=11600
-            ClientWorld world,
+            ClientLevel world,
             //#else
             //$$ World world,
             //#endif

@@ -1,36 +1,20 @@
 package com.replaymod.render.mixin;
 
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Quaternion;
 //#if MC>=10904
 import com.replaymod.core.versions.MCVer;
 import com.replaymod.render.blend.BlendState;
 import com.replaymod.render.hooks.EntityRendererHandler;
+import net.minecraft.client.Camera;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleManager;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.particle.ParticleEngine;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-//#if MC>=11900
-//#else
-//$$ import com.replaymod.render.blend.exporters.ParticlesExporter;
-//#endif
-
-//#if MC>=11500
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.util.math.Quaternion;
-//#else
-//$$ import com.replaymod.render.blend.mixin.ParticleAccessor;
-//$$ import net.minecraft.client.render.BufferBuilder;
-//#endif
-
-//#if MC>=11400
-import net.minecraft.client.render.Camera;
-//#else
-//$$ import net.minecraft.entity.Entity;
-//#endif
-
-@Mixin(ParticleManager.class)
+@Mixin(ParticleEngine.class)
 public abstract class MixinParticleManager {
     //#if MC>=11500
     @Redirect(method = "renderParticles", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/particle/Particle;buildGeometry(Lnet/minecraft/client/render/VertexConsumer;Lnet/minecraft/client/render/Camera;F)V"))
@@ -39,18 +23,18 @@ public abstract class MixinParticleManager {
         if (handler == null || !handler.omnidirectional) {
             buildGeometry(particle, vertexConsumer, camera, partialTicks);
         } else {
-            Quaternion rotation = camera.getRotation();
+            Quaternion rotation = camera.rotation();
             Quaternion org = rotation.copy();
             try {
-                Vec3d from = new Vec3d(0, 0, 1);
-                Vec3d to = MCVer.getPosition(particle, partialTicks).subtract(camera.getPos()).normalize();
-                Vec3d axis = from.crossProduct(to);
-                rotation.set((float) axis.x, (float) axis.y, (float) axis.z, (float) (1 + from.dotProduct(to)));
+                Vec3 from = new Vec3(0, 0, 1);
+                Vec3 to = MCVer.getPosition(particle, partialTicks).subtract(camera.getPosition()).normalize();
+                Vec3 axis = from.cross(to);
+                rotation.set((float) axis.x, (float) axis.y, (float) axis.z, (float) (1 + from.dot(to)));
                 rotation.normalize();
 
                 buildGeometry(particle, vertexConsumer, camera, partialTicks);
             } finally {
-                rotation.set(org.getW(), org.getX(), org.getY(), org.getZ());
+                rotation.set(org.r(), org.i(), org.j(), org.k());
             }
         }
     }
@@ -62,7 +46,7 @@ public abstract class MixinParticleManager {
         //$$     blendState.get(ParticlesExporter.class).onRender(particle, partialTicks);
         //$$ }
         //#endif
-        particle.buildGeometry(vertexConsumer, camera, partialTicks);
+        particle.render(vertexConsumer, camera, partialTicks);
     }
     //#else
     //#if MC>=11200

@@ -2,8 +2,6 @@
 package com.replaymod.core.gui;
 
 import com.replaymod.core.ReplayMod;
-import net.minecraft.client.gui.screen.Screen;
-
 import java.util.function.Function;
 
 //#if MC>=11700

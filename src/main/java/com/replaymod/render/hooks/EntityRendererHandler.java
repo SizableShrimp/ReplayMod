@@ -11,25 +11,16 @@ import com.replaymod.render.capturer.WorldRenderer;
 import com.replaymod.render.mixin.GameRendererAccessor;
 import com.replaymod.replay.ReplayModReplay;
 import de.johni0702.minecraft.gui.utils.EventRegistrations;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-
 //#if MC>=11400
 import com.replaymod.core.events.PostRenderCallback;
 import com.replaymod.core.events.PreRenderCallback;
-import net.minecraft.util.Util;
-//#else
-//#if MC>=11400
-//$$ import net.minecraftforge.fml.hooks.BasicEventHooks;
-//#else
-//$$ import net.minecraftforge.fml.common.FMLCommonHandler;
-//#endif
-//#endif
-
 import java.io.IOException;
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 
 public class EntityRendererHandler extends EventRegistrations implements WorldRenderer {
-    public final MinecraftClient mc = MCVer.getMinecraft();
+    public final Minecraft mc = MCVer.getMinecraft();
 
     protected final RenderSettings settings;
 
@@ -46,7 +37,7 @@ public class EntityRendererHandler extends EventRegistrations implements WorldRe
         this.renderInfo = renderInfo;
 
         //#if MC>=11400
-        this.startTime = Util.getMeasuringTimeNano();
+        this.startTime = Util.getNanos();
         //#else
         //$$ this.startTime = System.nanoTime();
         //#endif
@@ -81,13 +72,13 @@ public class EntityRendererHandler extends EventRegistrations implements WorldRe
         //#endif
         //#endif
 
-        if (mc.world != null && mc.player != null) {
+        if (mc.level != null && mc.player != null) {
             GameRendererAccessor gameRenderer = (GameRendererAccessor) mc.gameRenderer;
-            Screen orgScreen = mc.currentScreen;
+            Screen orgScreen = mc.screen;
             boolean orgPauseOnLostFocus = mc.options.pauseOnLostFocus;
             boolean orgRenderHand = gameRenderer.getRenderHand();
             try {
-                mc.currentScreen = null; // do not want to render the current screen (that'd just be the progress gui)
+                mc.screen = null; // do not want to render the current screen (that'd just be the progress gui)
                 mc.options.pauseOnLostFocus = false; // do not want the pause menu to open if the window is unfocused
                 if (omnidirectional) {
                     gameRenderer.setRenderHand(false); // makes no sense, we wouldn't even know where to put it
@@ -104,7 +95,7 @@ public class EntityRendererHandler extends EventRegistrations implements WorldRe
                 //#endif
                 //#endif
             } finally {
-                mc.currentScreen = orgScreen;
+                mc.screen = orgScreen;
                 mc.options.pauseOnLostFocus = orgPauseOnLostFocus;
                 gameRenderer.setRenderHand(orgRenderHand);
             }
